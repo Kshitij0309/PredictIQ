@@ -15,6 +15,18 @@ from predictiq.data.ingestion import (
     compute_sha256,
     verify_dataset_file,
 )
+from predictiq.data.loader import (
+    IDENTIFIER_COLUMNS,
+    NEGATIVE_TARGET_LABEL,
+    POSITIVE_TARGET_LABEL,
+    TARGET_COLUMN,
+    DataLoadError,
+    DatasetSplits,
+    load_and_split_data,
+    load_telco_churn_data,
+    prepare_features_and_target,
+    split_dataset,
+)
 from predictiq.data.validation import (
     DataValidationError,
     DatasetValidator,
@@ -37,4 +49,14 @@ __all__ = [
     "validate_dataset",
     "clean_telco_churn_data",
     "process_raw_to_interim",
+    "TARGET_COLUMN",
+    "POSITIVE_TARGET_LABEL",
+    "NEGATIVE_TARGET_LABEL",
+    "IDENTIFIER_COLUMNS",
+    "DataLoadError",
+    "DatasetSplits",
+    "load_telco_churn_data",
+    "prepare_features_and_target",
+    "split_dataset",
+    "load_and_split_data",
 ]

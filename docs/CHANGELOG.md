@@ -4,9 +4,60 @@ All notable changes, architectural decisions, and verification results for the P
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-10-18
+## [0.3.0] - 2026-10-18
 
-### Phase 2: Dataset Acquisition, Validation & Exploratory Data Analysis
+### Phase 3: Feature Engineering, Baseline Modeling & MLflow Experiment Tracking
+
+#### Added
+- **Data Splitting & Loading (`src/predictiq/data/loader.py`):**
+  - Stratified 80/20 train/test splitting (`random_state=42`) with strict target isolation and zero index overlap.
+  - Stripped identifier column `customerID` from model features to prevent key memorization leakage.
+  - Validated target distribution (26.54% positive churn prevalence across train and test sets).
+- **Domain Feature Engineering (`src/predictiq/features/transformers.py`):**
+  - Custom scikit-learn transformer `DomainFeatureEngineer`:
+    - `service_count`: integer count of active subscriptions (0 to 9).
+    - `streaming_services_count`: count of active entertainment services.
+    - Retention flags: `has_tech_support` and `has_online_security`.
+    - Risk indicators: `is_month_to_month`, `is_fiber_optic`, and `is_electronic_check`.
+    - Categorical `tenure_group` cohorts.
+  - Evaluated and documented explicit omission of `TotalCharges / MonthlyCharges` (proxy for tenure with $r > 0.98$ correlation).
+- **Leakage-Safe Preprocessing (`src/predictiq/features/pipeline.py`):**
+  - Modular `ColumnTransformer` with `SimpleImputer` (median for numericals, most-frequent for categoricals).
+  - Continuous feature scaling via `StandardScaler`.
+  - Nominal encoding via `OneHotEncoder(handle_unknown='ignore')` for safe unseen categorical handling.
+  - End-to-end `build_model_pipeline()` assembler.
+- **Baseline Models (`src/predictiq/models/baselines.py`):**
+  - Naive baseline: `DummyClassifier(strategy='most_frequent')`.
+  - Linear baseline: `LogisticRegression(class_weight='balanced', C=1.0, max_iter=1000)`.
+  - Non-linear tree baseline: `RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, class_weight='balanced')`.
+- **Evaluation & Reporting (`src/predictiq/models/evaluation.py`):**
+  - Full evaluation framework: Accuracy, Precision, Recall, F1, ROC-AUC, Average Precision (PR-AUC), Brier Score, and Confusion Matrix.
+  - Automated plot generation: `reports/figures/roc_curves.png`, `reports/figures/pr_curves.png`, `reports/figures/confusion_matrices.png`.
+  - Machine-readable exports: `reports/model_comparison.csv` and `reports/model_comparison.json`.
+- **MLflow Experiment Tracking (`src/predictiq/tracking/manager.py`):**
+  - Resilient tracking manager supporting remote server connections with automatic local filesystem fallback (`./mlruns`).
+  - Logged 3 baseline model runs with parameters, metrics, plots, signatures, and input examples.
+- **Model Persistence & Inference (`src/predictiq/models/persistence.py`, `src/predictiq/inference/predictor.py`):**
+  - Serialized champion `RandomForestClassifier` pipeline and metadata to `models/churn_baseline_model.joblib`.
+  - Production inference engine `ChurnPredictor` supporting input schema validation, single/batch prediction, and risk tier stratification (`Low Risk`, `Medium Risk`, `High Risk`).
+- **CLI Workflow Runner (`scripts/train_baseline.py`):**
+  - Reproducible script for training, cross-validation, and metric reporting.
+- **Automated Tests:**
+  - `tests/test_data_loader.py`: 7 tests for splitting, stratification, and target validation.
+  - `tests/test_features.py`: 6 tests for feature engineering, service counts, and unseen categories.
+  - `tests/test_model_evaluation.py`: 4 tests for metric extraction, probability checks, and report generation.
+  - `tests/test_inference.py`: 4 tests for pipeline persistence, bit-level reload consistency, and inference schema validation.
+  - `tests/test_tracking.py`: 2 tests for MLflow local logging and fallback resolution.
+
+#### Validation Outcomes
+- **Test Suite:** **86 of 86 tests passed** in 10.69s.
+- **Linter:** Ruff checks completed with 0 errors across all source and test modules.
+- **Model Comparison:** Random Forest selected as champion with Average Precision **0.6471** (+0.38 over 0.2654 naive baseline), ROC-AUC **0.8420**, Recall **0.7888**, and F1 **0.6263**.
+- **Inference Verification:** Reloaded pipeline passed smoke test with correct risk tier classifications.
+
+---
+
+## [0.2.0] - 2026-10-18
 
 #### Added
 - **Data Ingestion Engine (`src/predictiq/data/ingestion.py`):**

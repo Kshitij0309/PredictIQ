@@ -57,14 +57,17 @@ graph TD
 | **Data Ingestion** | `src/predictiq/data/ingestion.py` | Provenance tracking, SHA-256 verification, safe downloads, and metadata generation. | **Implemented & Verified** (9 unit tests passing) |
 | **Data Validation** | `src/predictiq/data/validation.py` | Non-destructive schema, missing-value, boundary, and domain consistency verification. | **Implemented & Verified** (12 unit tests passing) |
 | **Data Cleaning** | `src/predictiq/data/cleaning.py` | Type normalization, TotalCharges imputation (tenure=0), and interim data generation. | **Implemented & Verified** (Cleaned CSV & Parquet outputs) |
+| **Data Loader & Split** | `src/predictiq/data/loader.py` | Reproducible stratified 80/20 train/test splitting, identifier stripping, target validation. | **Implemented & Verified** (7 unit tests passing) |
 | **Analysis Layer** | `notebooks/` | Interactive prototyping, exploratory analysis, distribution tests, hypothesis verification. | **Implemented & Verified** (`01_eda_telco_churn.ipynb` executed) |
 | **Configuration** | `src/predictiq/config.py` | Typed dataclass models, port/mode validation, standard library `.env` parsing, dynamic path resolution, connection URL generation. | **Implemented & Verified** (42 unit tests passing) |
-| **Feature Layer** | `src/predictiq/features/` | Scalable scikit-learn compatible transformers, feature stores, categorical encoding, imputers. | *Planned for Phase 3* |
-| **ML Layer** | `src/predictiq/models/` | Model estimators, cross-validation runners, hyperparameter optimization, MLflow metric logging. | *Planned for Phase 4* |
+| **Feature Layer** | `src/predictiq/features/` | Scalable scikit-learn transformers (`DomainFeatureEngineer`), `ColumnTransformer`, imputation, and one-hot encoding. | **Implemented & Verified** (6 unit tests passing) |
+| **Model Baselines** | `src/predictiq/models/` | Naive Dummy, Logistic Regression, Random Forest, 5-fold CV, metrics evaluation, and persistence. | **Implemented & Verified** (8 unit tests passing) |
+| **Experiment Tracking** | `src/predictiq/tracking/` | MLflow tracking manager supporting remote server and automatic local filesystem fallback (`./mlruns`). | **Implemented & Verified** (2 unit tests passing) |
+| **Inference Engine** | `src/predictiq/inference/` | `ChurnPredictor` with input validation, probability scoring, and risk tier assignments. | **Implemented & Verified** (4 unit tests passing) |
 | **Serving Layer** | `src/predictiq/serving/` | FastAPI asynchronous inference endpoints, input schema validation, model artifact loading. | *Planned for Phase 5* |
 | **Monitoring Layer**| `src/predictiq/monitoring/`| Prediction data logging, PSI/Wasserstein drift calculation, accuracy tracking. | *Planned for Phase 6* |
 | **Infrastructure** | `docker-compose.yml` | Containerized PostgreSQL 16 metadata store and MLflow 2.19 tracking server bound to localhost. | **Implemented & Verified** (validated via `docker compose config`) |
-| **Test Suite** | `tests/` | Deterministic unit, integration, and configuration regression tests executed via `pytest`. | **Implemented & Verified** (63 passing tests) |
+| **Test Suite** | `tests/` | Deterministic unit, integration, and configuration regression tests executed via `pytest`. | **Implemented & Verified** (**86 passing tests**) |
 
 ---
 

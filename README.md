@@ -189,16 +189,37 @@ docker compose down -v
 - [x] Comprehensive pytest test suite (42 tests passing).
 - [x] Complete architecture documentation, ADR-001, changelog, and setup guide.
 
-### Phase 2 Implemented
-- [x] Verified acquisition of IBM Telco Customer Churn dataset with SHA-256 cryptographic tracking.
-- [x] Raw dataset safely excluded from Git via `.gitignore`.
-- [x] Reusable, non-destructive data validation engine ([`src/predictiq/data/validation.py`](file:///D:/Projects/PredictIQ/src/predictiq/data/validation.py)).
-- [x] Data cleaning and interim transformation pipeline ([`src/predictiq/data/cleaning.py`](file:///D:/Projects/PredictIQ/src/predictiq/data/cleaning.py)).
-- [x] End-to-end reproducible exploratory data analysis notebook ([`notebooks/01_eda_telco_churn.ipynb`](file:///D:/Projects/PredictIQ/notebooks/01_eda_telco_churn.ipynb)).
-- [x] Two formal statistical hypothesis tests ($\chi^2$ test with Cramér's $V$; Welch's t-test with Cohen's $d$).
-- [x] Complete dataset card ([`docs/data/DATASET_CARD.md`](file:///D:/Projects/PredictIQ/docs/data/DATASET_CARD.md)).
-- [x] 21 new deterministic unit tests added (total **63 passing tests**).
+### Phase 3 Implemented
+- [x] Leakage-safe stratified train/test split with zero index overlap and class preservation (`src/predictiq/data/loader.py`).
+- [x] Reusable, testable domain feature engineering pipeline (`src/predictiq/features/`).
+- [x] Naive baseline (`DummyClassifier`), linear baseline (`LogisticRegression`), and tree-based baseline (`RandomForestClassifier`).
+- [x] 5-Fold Stratified Cross-Validation strictly restricted to training data.
+- [x] Full classification evaluation suite (PR-AUC, ROC-AUC, Recall, Precision, F1, Brier score, Confusion Matrices).
+- [x] Local and remote MLflow experiment tracking integration (`src/predictiq/tracking/`).
+- [x] Joblib model persistence paired with rich metadata (`src/predictiq/models/persistence.py`).
+- [x] Production inference engine with schema validation and risk tiers (`src/predictiq/inference/predictor.py`).
+- [x] Standalone CLI execution script (`scripts/train_baseline.py`).
+- [x] 23 new deterministic unit tests added (total **86 passing tests**).
+
+### Execution Commands (Phase 3 Modeling & Inference)
+```powershell
+# Run baseline model training, cross-validation, and MLflow logging
+python scripts/train_baseline.py
+
+# Run all 86 unit and integration tests
+pytest -v
+
+# Run Ruff linter
+ruff check .
+
+# Test inference on saved model
+python -c "
+from predictiq.inference import ChurnPredictor
+predictor = ChurnPredictor.from_saved_model()
+print('Predictor successfully loaded and operational!')
+"
+```
 
 ### Current Limitations & Exclusions
-- **No ML models or training pipelines yet:** By design, Phase 2 focuses on data acquisition, validation, and EDA. Model training begins in Phase 4.
-- **Docker runtime requires active Docker Desktop:** `docker compose config` validates deterministically; container startup depends on Docker Desktop running on the host.
+- **Hyperparameter search & threshold calibration:** Model baselines use sensible defaults. Comprehensive hyperparameter optimization and profit-maximizing threshold calibration belong to Phase 4.
+- **Docker runtime requires active Docker Desktop:** `docker compose config` validates deterministically; local file tracking (`./mlruns`) acts as the verified fallback when the Docker daemon is offline.

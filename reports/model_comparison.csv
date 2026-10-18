@@ -1,0 +1,4 @@
+model_name,model_type,accuracy,precision,recall,f1_score,roc_auc,average_precision,brier_score,cv_mean_pr_auc,cv_mean_roc_auc
+Random Forest,RandomForestClassifier,0.7502,0.5194,0.7888,0.6263,0.842,0.6471,0.163,0.6633,0.848
+Logistic Regression,LogisticRegression,0.7339,0.4992,0.7941,0.613,0.8417,0.6348,0.1675,0.6639,0.8463
+Dummy (Most Frequent),DummyClassifier,0.7346,0.0,0.0,0.0,0.5,0.2654,0.2654,0.2654,0.5

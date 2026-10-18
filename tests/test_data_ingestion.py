@@ -1,7 +1,6 @@
 """Deterministic unit tests for data acquisition and provenance tracking."""
 
 import hashlib
-import json
 from pathlib import Path
 
 import pytest

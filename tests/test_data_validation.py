@@ -5,8 +5,6 @@ import pandas as pd
 import pytest
 
 from predictiq.data.validation import (
-    DatasetValidator,
-    ValidationReport,
     validate_dataset,
 )
 

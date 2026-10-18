@@ -22,11 +22,15 @@ keywords = [
 dependencies = [
     "pandas>=2.2.0",
     "numpy>=1.26.0",
+    "scikit-learn>=1.4.0",
+    "joblib>=1.3.0",
+    "mlflow>=2.10.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
+    "ruff>=0.4.0",
 ]
 analysis = [
     "scipy>=1.12.0",
@@ -34,6 +38,12 @@ analysis = [
     "seaborn>=0.13.0",
     "ipykernel>=6.29.0",
     "nbconvert>=7.16.0",
+    "openpyxl>=3.1.0",
+]
+db = [
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "pyarrow>=15.0.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -47,3 +57,25 @@ pythonpath = ["src"]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "data",
+    "artifacts",
+    "mlruns",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/*" = ["E402", "F401", "W293"]
+"scripts/*" = ["E402"]

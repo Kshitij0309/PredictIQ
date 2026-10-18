@@ -1,71 +1,62 @@
-# PredictIQ — Next Task: Phase 3 (Feature Engineering & Preprocessing Pipelines)
+# PredictIQ — Next Task: Phase 4 (Hyperparameter Optimization, Calibration & Explainability)
 
 ## 1. Task Definition
-**Task Name:** Phase 3 — Feature Engineering & Preprocessing Pipelines  
-**Objective:** Design and implement modular, scikit-learn compatible feature transformations, domain feature extractors, and stratified data splitting pipelines under `src/predictiq/features/` to transform cleaned interim data into model-ready matrices without target leakage.
+**Task Name:** Phase 4 — Advanced Modeling, Hyperparameter Optimization, Threshold Calibration & Explainability  
+**Objective:** Systematically search hyperparameter spaces for advanced gradient boosted decision trees (LightGBM / XGBoost / CatBoost), optimize classification decision thresholds to minimize business churn financial loss, and integrate SHAP model explainability.
 
 ---
 
 ## 2. Scope & Boundaries
 - **In Scope:**
-  1. **Stratified Splitting:** Implement `src/predictiq/features/split.py` with reproducible, stratified train/val/test partitioning (e.g. 70/15/15) preserving the 26.54% churn class ratio across folds.
-  2. **Domain Feature Transformers:** Implement `src/predictiq/features/transformers.py`:
-     - Ratio features: `charges_to_tenure_ratio = MonthlyCharges / (tenure + 1)`.
-     - Bundle depth: `service_depth` (sum of active internet add-ons: OnlineSecurity, OnlineBackup, DeviceProtection, TechSupport, StreamingTV, StreamingMovies).
-     - Risk indicators: `fiber_without_support = (InternetService == 'Fiber optic') & (TechSupport == 'No')`.
-     - Household stability: `household_single = (Partner == 'No') & (Dependents == 'No')`.
-  3. **Preprocessing Pipeline:** Implement `src/predictiq/features/pipeline.py`:
-     - `ColumnTransformer` with `StandardScaler` for continuous numerical features (`tenure`, `MonthlyCharges`, `TotalCharges`).
-     - One-hot encoding for nominal variables (`gender`, `PaymentMethod`, `InternetService`).
-     - Ordinal encoding for contract duration (`Month-to-month` -> 0, `One year` -> 1, `Two year` -> 2).
-     - Strict fit-on-train-only discipline to eliminate data leakage.
-     - Export processed matrices (`train.parquet`, `val.parquet`, `test.parquet`) to `data/processed/`.
-  4. **Deterministic Unit Tests:** Implement `tests/test_features.py` validating split proportions, transformer repeatability, dimension preservation, and lack of leakage.
+  1. **Gradient Boosting Estimators:**
+     - Integrate LightGBM / XGBoost / CatBoost classifiers into PredictIQ pipeline framework.
+     - Compare performance against Phase 3 Random Forest and Logistic Regression baselines.
+  2. **Systematic Hyperparameter Search:**
+     - Implement Optuna or RandomizedSearchCV with cross-validation on training data.
+     - Optimize primary metric: Average Precision / PR-AUC.
+  3. **Decision Threshold Optimization:**
+     - Calibrate probabilities using isotonic regression or Platt scaling.
+     - Formulate business financial cost-benefit matrix:
+       - Cost of retention outreach campaign ($C_{\text{action}}$)
+       - Customer Lifetime Value preserved ($V_{\text{salvage}}$)
+       - Cost of false negative churn loss
+     - Determine profit-maximizing decision threshold $p^*$ on training cross-validation folds.
+  4. **Model Explainability & Transparency:**
+     - Compute TreeSHAP values for global feature importances and local decision waterfall plots.
+     - Export explainability summary figures into `reports/figures/shap_summary.png`.
+  5. **Deterministic Unit Tests:**
+     - Tests for hyperparameter search pipeline, threshold selection logic, and SHAP computation.
 - **Out of Scope (Deferred to Later Phases):**
-  - Estimator training, cross-validation, and MLflow run logging (Phase 4).
-  - Model serialization and registry packaging (Phase 4).
-  - FastAPI real-time prediction endpoints (Phase 5).
+  - FastAPI serving endpoints and Docker containerization (Phase 5).
+  - Data drift and model monitoring service (Phase 6).
 
 ---
 
 ## 3. Prerequisites
-- [x] Phase 1 Project Foundation & Architecture complete, verified, and audited.
-- [x] Phase 2 Dataset Acquisition, Validation & EDA complete and verified.
-- [x] Clean interim dataset available at `data/interim/Telco-Customer-Churn-cleaned.csv`.
-- [ ] Add `scikit-learn>=1.4.0` dependency to `pyproject.toml`.
+- [x] Phase 1 Project Foundation verified.
+- [x] Phase 2 Dataset Acquisition, Validation & EDA verified.
+- [x] Phase 3 Feature Engineering, Baseline Modeling & MLflow Tracking verified (86 passing tests, champion Random Forest model saved).
+- [ ] Add `lightgbm` and `shap` to `pyproject.toml`.
 
 ---
 
-## 4. Files Likely to Change / Be Created
-- `pyproject.toml`: Add `scikit-learn>=1.4.0`.
-- `src/predictiq/features/__init__.py`: Public exports for feature pipelines.
-- `src/predictiq/features/split.py`: Stratified data splitting utilities.
-- `src/predictiq/features/transformers.py`: Custom scikit-learn compatible transformers.
-- `src/predictiq/features/pipeline.py`: Composable end-to-end preprocessing pipeline.
-- `tests/test_features.py`: Unit tests for feature extraction and leak-free transformations.
-- `docs/CHANGELOG.md`: Log Phase 3 implementation.
-- `CURRENT_STATE.md`: Update milestone progress and verification logs.
-- `NEXT_TASK.md`: Update handoff for Phase 4 (Model Training & MLflow Tracking).
+## 4. Acceptance Criteria
+1. Gradient boosting models evaluate against the baseline suite under identical 80/20 train/test splits.
+2. Cross-validation hyperparameter search yields a champion model with documented improvements in PR-AUC.
+3. Decision threshold $p^*$ is derived strictly from training CV folds to prevent test set data leakage.
+4. SHAP feature attribution artifacts are automatically logged to MLflow and saved under `reports/figures/`.
+5. All new tests pass deterministically alongside existing 86 tests (zero regressions).
 
 ---
 
-## 5. Acceptance Criteria
-1. Stratified splitting preserves class balance ($26.54\% \pm 0.5\%$) across train, validation, and test sets.
-2. Preprocessing pipeline strictly fits on the training set only; validation and test sets are transformed without re-fitting.
-3. Feature transformers correctly compute domain features (`service_depth`, `charges_to_tenure_ratio`, `fiber_without_support`).
-4. Processed datasets are output to `data/processed/` and remain excluded from Git via `.gitignore`.
-5. All new feature tests pass deterministically alongside existing Phase 1 & 2 tests (zero regressions).
-
----
-
-## 6. Verification Commands
+## 5. Verification Commands
 ```powershell
-# 1. Run full test suite including new feature engineering tests
-& ".\.venv\Scripts\pytest.exe" tests -v
+# 1. Run all unit and integration tests
+pytest -v
 
-# 2. Run feature generation pipeline CLI
-& ".\.venv\Scripts\python.exe" -m predictiq.features.pipeline --split
+# 2. Run advanced model tuning workflow
+python scripts/tune_models.py
 
-# 3. Verify processed output files exist and are valid
-& ".\.venv\Scripts\python.exe" -c "import pandas as pd; df = pd.read_parquet('data/processed/train.parquet'); print(df.shape, df['Churn'].value_counts(normalize=True))"
+# 3. Inspect champion model comparison
+cat reports/model_comparison.csv
 ```

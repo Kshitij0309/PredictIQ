@@ -1,13 +1,23 @@
 # PredictIQ — Current State Assessment
 
 **Last Updated:** 2026-10-18  
-**Current Phase:** Phase 2: Dataset Acquisition, Validation & Exploratory Data Analysis  
+**Current Phase:** Phase 3: Feature Engineering, Baseline Modeling & MLflow Experiment Tracking  
 **Status:** COMPLETE & VERIFIED  
 
 ---
 
 ## 1. Phase Objective
-Acquire the public IBM Telco Customer Churn dataset from the verified upstream IBM repository, implement a non-destructive data validation and cleaning pipeline under `src/predictiq/data/`, produce an end-to-end reproducible exploratory data analysis notebook with formal statistical hypothesis testing, and add deterministic unit tests.
+Establish a reproducible, leakage-safe machine learning workflow for churn classification:
+- Load the validated dataset via a dedicated data loader.
+- Separate features $X$ and target $y$ (`Churn`), strictly excluding customer identifiers.
+- Partition data into reproducible stratified 80/20 train/test splits.
+- Construct leakage-safe feature engineering pipelines (`DomainFeatureEngineer`, `create_preprocessor`).
+- Train and evaluate naive baseline (`DummyClassifier`), linear baseline (`LogisticRegression`), and tree baseline (`RandomForestClassifier`).
+- Run 5-fold cross-validation on training data.
+- Track experiments, parameters, metrics, artifacts, and signatures in MLflow (with local fallback).
+- Persist winning pipeline and metadata via `joblib`.
+- Build a production inference engine (`ChurnPredictor`).
+- Add comprehensive deterministic tests.
 
 ---
 
@@ -16,7 +26,7 @@ Acquire the public IBM Telco Customer Churn dataset from the verified upstream I
 ```
 D:\Projects\PredictIQ\
 ├── .env.example                     # Verified: safe defaults, uncommitted template
-├── .gitignore                        # Verified: excludes .env, venv, data/*, artifacts
+├── .gitignore                        # Verified: excludes .env, venv, data/*, artifacts, mlruns, models
 ├── artifacts\
 │   └── .gitkeep                      # Verified: directory anchor
 ├── CURRENT_STATE.md                  # This file
@@ -38,47 +48,81 @@ D:\Projects\PredictIQ\
 │   ├── data\
 │   │   └── DATASET_CARD.md           # Verified: Dataset card (provenance, schema, ethics)
 │   ├── ARCHITECTURE.md               # Verified: System design & data layer boundaries
-│   ├── CHANGELOG.md                  # Verified: v0.2.0 release notes
-│   └── DEVELOPMENT_SETUP.md          # Verified: PowerShell setup & verification
-├── NEXT_TASK.md                      # Verified: Phase 3 scope & acceptance criteria
+│   ├── CHANGELOG.md                  # Verified: release notes
+│   ├── DEVELOPMENT_SETUP.md          # Verified: PowerShell setup & verification
+│   └── PHASE_3_IMPLEMENTATION_REPORT.md # Verified: Phase 3 comprehensive report
+├── models\
+│   ├── churn_baseline_model.joblib   # Verified: Champion pipeline binary (ignored by Git)
+│   └── churn_baseline_model_metadata.json # Verified: Model metadata & metrics
+├── NEXT_TASK.md                      # Verified: Phase 4 scope & acceptance criteria
 ├── notebooks\
 │   ├── README.md                     # Verified: Reproducibility guidelines
 │   └── 01_eda_telco_churn.ipynb      # Verified: Executed 25-cell EDA & hypothesis tests
-├── pyproject.toml                    # Verified: PEP 517 package config with analysis dependencies
-├── README.md                         # Verified: Complete project guide & Phase 2 quickstart
+├── pyproject.toml                    # Verified: Package config with core, analysis, dev, and db dependencies
+├── README.md                         # Verified: Complete project guide & execution commands
+├── reports\
+│   ├── figures\
+│   │   ├── confusion_matrices.png    # Verified: Side-by-side CM heatmaps
+│   │   ├── pr_curves.png             # Verified: Comparative PR curves
+│   │   └── roc_curves.png            # Verified: Comparative ROC curves
+│   ├── model_comparison.csv          # Verified: Machine-readable summary table
+│   └── model_comparison.json         # Verified: JSON metrics for CI/CD
+├── scripts\
+│   └── train_baseline.py             # Verified: Standalone model training CLI
 ├── src\
 │   └── predictiq\
 │       ├── __init__.py               # Verified: exports Config, version 0.1.0
 │       ├── config.py                 # Verified: typed dataclasses, validation, .env
-│       └── data\
-│           ├── __init__.py           # Verified: exports ingestion, validation, cleaning
-│           ├── ingestion.py          # Verified: SHA-256 provenance tracking & acquisition
-│           ├── validation.py         # Verified: schema, constraint, & domain validation
-│           └── cleaning.py           # Verified: type normalization & interim export
+│       ├── data\
+│       │   ├── __init__.py           # Verified: exports ingestion, validation, cleaning, loader
+│       │   ├── ingestion.py          # Verified: SHA-256 provenance tracking & acquisition
+│       │   ├── validation.py         # Verified: schema, constraint, & domain validation
+│       │   ├── cleaning.py           # Verified: type normalization & interim export
+│       │   └── loader.py             # Verified: stratified train/test splitting & target isolation
+│       ├── features\
+│       │   ├── __init__.py           # Verified: exports feature transformers & pipelines
+│       │   ├── transformers.py       # Verified: DomainFeatureEngineer
+│       │   └── pipeline.py           # Verified: ColumnTransformer & model pipeline builders
+│       ├── inference\
+│       │   ├── __init__.py           # Verified: exports ChurnPredictor
+│       │   └── predictor.py          # Verified: Production inference engine & risk tiers
+│       ├── models\
+│       │   ├── __init__.py           # Verified: exports baselines, evaluation, train, persistence
+│       │   ├── baselines.py          # Verified: Dummy, Logistic, Random Forest builders
+│       │   ├── evaluation.py         # Verified: metrics extraction & figure plotting
+│       │   ├── persistence.py        # Verified: joblib serialization & loading
+│       │   └── train.py              # Verified: end-to-end training & CV orchestration
+│       └── tracking\
+│           ├── __init__.py           # Verified: exports MLflowTrackingManager
+│           └── manager.py            # Verified: MLflow tracking with local directory fallback
 └── tests\
     ├── test_config.py                # Verified: 42 pytest foundation unit tests
     ├── test_data_ingestion.py        # Verified: 9 unit tests for acquisition & hashing
-    └── test_data_validation.py       # Verified: 12 unit tests for schema & domain rules
+    ├── test_data_loader.py           # Verified: 7 unit tests for splitting & leakage prevention
+    ├── test_data_validation.py       # Verified: 12 unit tests for schema & domain rules
+    ├── test_features.py              # Verified: 6 unit tests for feature engineering
+    ├── test_inference.py             # Verified: 4 unit tests for persistence & prediction
+    ├── test_model_evaluation.py      # Verified: 4 unit tests for evaluation & metrics
+    └── test_tracking.py              # Verified: 2 unit tests for MLflow local logging
 ```
 
 ---
 
 ## 3. Implemented vs. Planned Functionality
 
-| Capability | Planned in Phase 2 | Status | Verification Evidence |
+| Capability | Planned in Phase 3 | Status | Verification Evidence |
 |---|---|---|---|
-| Dataset Acquisition & Hashing | Yes | **Completed** | SHA-256 `16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91` |
-| Dataset Provenance Tracking | Yes | **Completed** | Metadata JSON in `data/metadata/Telco-Customer-Churn_metadata.json` |
-| Schema & Domain Validation | Yes | **Completed** | `DatasetValidator` with non-destructive `ValidationReport` |
-| Data Cleaning & Normalization | Yes | **Completed** | `clean_telco_churn_data` imputes 11 blank TotalCharges (tenure=0) |
-| Interim Data Export | Yes | **Completed** | Cleaned dataset in `data/interim/Telco-Customer-Churn-cleaned.csv` |
-| Exploratory Analysis Notebook | Yes | **Completed** | `notebooks/01_eda_telco_churn.ipynb` executed headlessly (exit code 0) |
-| Hypothesis Testing (Contract) | Yes | **Completed** | Chi-Square $\chi^2 = 1184.60, p = 5.86 \times 10^{-258}$, Cramér's $V = 0.410$ |
-| Hypothesis Testing (Charges) | Yes | **Completed** | Welch's $t = 18.41, p = 8.59 \times 10^{-73}$, Cohen's $d = 0.446$ |
-| Dataset Card Documentation | Yes | **Completed** | `docs/data/DATASET_CARD.md` with schema, ethics, and limitations |
-| Deterministic Unit Tests | Yes | **Completed** | 21 new tests added; total 63 passing tests |
-| Feature Engineering Pipeline | No (Phase 3) | Deferred | Scheduled for Phase 3 |
-| Model Training & MLflow Logging | No (Phase 4) | Deferred | Scheduled for Phase 4 |
+| Stratified Split (80/20, seed 42) | Yes | **Completed** | Zero index overlap, 26.54% class balance preserved |
+| Domain Feature Engineering | Yes | **Completed** | `DomainFeatureEngineer` (service counts, contract flags, cohorts) |
+| Missing Value Imputation | Yes | **Completed** | Numeric median + Categorical most-frequent in Pipeline |
+| Leakage-Free Preprocessing | Yes | **Completed** | Fit strictly on train; `OneHotEncoder(handle_unknown='ignore')` |
+| Baseline Models (Dummy, Logistic, RF) | Yes | **Completed** | All 3 evaluated under identical split & CV conditions |
+| Evaluation Framework (PR-AUC, ROC, F1) | Yes | **Completed** | RF: PR-AUC 0.6471, ROC 0.8420, F1 0.6263; reports exported |
+| MLflow Experiment Tracking | Yes | **Completed** | Runs logged to `./mlruns` with params, metrics, plots, signatures |
+| Model Persistence & Metadata | Yes | **Completed** | `models/churn_baseline_model.joblib` and metadata saved |
+| Production Inference Engine | Yes | **Completed** | `ChurnPredictor` with validation, scoring, and risk tiers |
+| Deterministic Unit Tests | Yes | **Completed** | 23 new tests added; total **86 passing tests** |
+| Hyperparameter Optimization | No (Phase 4) | Deferred | Scheduled for Phase 4 |
 | FastAPI inference service | No (Phase 5) | Deferred | Scheduled for Phase 5 |
 | Monitoring & drift detection | No (Phase 6) | Deferred | Scheduled for Phase 6 |
 
@@ -88,13 +132,13 @@ D:\Projects\PredictIQ\
 
 | Component | Status | Details |
 |---|---|---|
-| **Operating System** | Verified | Windows 11 (PowerShell 5.1/7.x runtime) |
-| **Python** | Verified | `Python 3.13.14` at `C:\Users\mkshi\AppData\Local\Programs\Python\Python313\python.exe` |
-| **Virtual Environment** | Verified | `D:\Projects\PredictIQ\.venv` with `pandas 3.0.6`, `numpy 2.5.4`, `scipy 1.18.1`, `matplotlib 3.11.2`, `seaborn 0.13.2`, `ipykernel 7.4.0`, `nbconvert 7.17.2` |
-| **Git** | Verified | `git version 2.55.0.windows.3` installed; raw data excluded |
-| **Docker CLI** | Verified | `Docker version 29.6.2`, `Docker Compose version v5.3.1` |
-| **Docker Compose Config** | Verified | Validated with zero syntax errors via `docker compose config` |
-| **Docker Daemon Runtime** | Environmental Blocker | Docker Desktop CLI is present, but the background daemon process is not running in the Windows session (`npipe:////./pipe/dockerDesktopLinuxEngine` connection refused). Container startup requires user to start Docker Desktop. |
+| **Operating System** | Verified | Windows 11 (PowerShell runtime) |
+| **Python** | Verified | `Python 3.13.14` |
+| **Virtual Environment** | Verified | `D:\Projects\PredictIQ\.venv` with `scikit-learn 1.9.1`, `joblib 1.6.0`, `mlflow 3.17.1`, `ruff 0.17.1` |
+| **Test Suite** | Verified | **86 passed** in 10.69s with zero failures |
+| **Linter** | Verified | Ruff: `All checks passed!` |
+| **MLflow Store** | Verified | Local filesystem store (`./mlruns`) functional with 3 verified runs |
+| **Docker Daemon Runtime** | Environmental Blocker | Docker Desktop process not running on host; local file fallback operational |
 
 ---
 

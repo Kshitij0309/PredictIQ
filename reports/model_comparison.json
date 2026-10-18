@@ -1,0 +1,158 @@
+[
+  {
+    "model_name": "Dummy (Most Frequent)",
+    "model_type": "DummyClassifier",
+    "accuracy": 0.7345635202271115,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "roc_auc": 0.5,
+    "average_precision": 0.2654364797728886,
+    "brier_score": 0.2654364797728886,
+    "confusion_matrix": [
+      [
+        1035,
+        0
+      ],
+      [
+        374,
+        0
+      ]
+    ],
+    "classification_report_dict": {
+      "0": {
+        "precision": 0.7345635202271115,
+        "recall": 1.0,
+        "f1-score": 0.8469721767594108,
+        "support": 1035.0
+      },
+      "1": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 374.0
+      },
+      "accuracy": 0.7345635202271115,
+      "macro avg": {
+        "precision": 0.36728176011355573,
+        "recall": 0.5,
+        "f1-score": 0.4234860883797054,
+        "support": 1409.0
+      },
+      "weighted avg": {
+        "precision": 0.539583565248446,
+        "recall": 0.7345635202271115,
+        "f1-score": 0.6221548636948121,
+        "support": 1409.0
+      }
+    },
+    "cv_mean_pr_auc": 0.2653532460941748,
+    "cv_std_pr_auc": 9.424729039040346e-05,
+    "cv_mean_roc_auc": 0.5,
+    "cv_std_roc_auc": 0.0
+  },
+  {
+    "model_name": "Logistic Regression",
+    "model_type": "LogisticRegression",
+    "accuracy": 0.7338537970191625,
+    "precision": 0.4991596638655462,
+    "recall": 0.7941176470588235,
+    "f1_score": 0.6130030959752322,
+    "roc_auc": 0.8417473972461185,
+    "average_precision": 0.6347608948039756,
+    "brier_score": 0.16745224268106396,
+    "confusion_matrix": [
+      [
+        737,
+        298
+      ],
+      [
+        77,
+        297
+      ]
+    ],
+    "classification_report_dict": {
+      "0": {
+        "precision": 0.9054054054054054,
+        "recall": 0.7120772946859903,
+        "f1-score": 0.7971876690102758,
+        "support": 1035.0
+      },
+      "1": {
+        "precision": 0.4991596638655462,
+        "recall": 0.7941176470588235,
+        "f1-score": 0.6130030959752322,
+        "support": 374.0
+      },
+      "accuracy": 0.7338537970191625,
+      "macro avg": {
+        "precision": 0.7022825346354757,
+        "recall": 0.753097470872407,
+        "f1-score": 0.7050953824927539,
+        "support": 1409.0
+      },
+      "weighted avg": {
+        "precision": 0.7975729658483385,
+        "recall": 0.7338537970191625,
+        "f1-score": 0.7482983643153813,
+        "support": 1409.0
+      }
+    },
+    "cv_mean_pr_auc": 0.6638638255104615,
+    "cv_std_pr_auc": 0.012989328422316782,
+    "cv_mean_roc_auc": 0.8463048693603937,
+    "cv_std_roc_auc": 0.011455286940403474
+  },
+  {
+    "model_name": "Random Forest",
+    "model_type": "RandomForestClassifier",
+    "accuracy": 0.7501774308019872,
+    "precision": 0.5193661971830986,
+    "recall": 0.7887700534759359,
+    "f1_score": 0.6263269639065817,
+    "roc_auc": 0.8420289855072463,
+    "average_precision": 0.647051601498255,
+    "brier_score": 0.16303904248748818,
+    "confusion_matrix": [
+      [
+        762,
+        273
+      ],
+      [
+        79,
+        295
+      ]
+    ],
+    "classification_report_dict": {
+      "0": {
+        "precision": 0.906064209274673,
+        "recall": 0.736231884057971,
+        "f1-score": 0.8123667377398721,
+        "support": 1035.0
+      },
+      "1": {
+        "precision": 0.5193661971830986,
+        "recall": 0.7887700534759359,
+        "f1-score": 0.6263269639065817,
+        "support": 374.0
+      },
+      "accuracy": 0.7501774308019872,
+      "macro avg": {
+        "precision": 0.7127152032288858,
+        "recall": 0.7625009687669535,
+        "f1-score": 0.7193468508232269,
+        "support": 1409.0
+      },
+      "weighted avg": {
+        "precision": 0.8034204502099116,
+        "recall": 0.7501774308019872,
+        "f1-score": 0.7629849950758192,
+        "support": 1409.0
+      }
+    },
+    "cv_mean_pr_auc": 0.6633287600997025,
+    "cv_std_pr_auc": 0.015995138101380837,
+    "cv_mean_roc_auc": 0.8480110489665718,
+    "cv_std_roc_auc": 0.008504869577443024
+  }
+]

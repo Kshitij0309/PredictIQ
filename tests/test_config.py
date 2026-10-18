@@ -1,7 +1,6 @@
 """Deterministic foundation tests for PredictIQ configuration and project integrity."""
 
 import os
-from pathlib import Path
 
 import pytest
 
