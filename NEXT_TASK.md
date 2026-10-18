@@ -21,8 +21,8 @@
 ---
 
 ## 3. Prerequisites
-- [x] Phase 1 Project Foundation & Architecture complete and verified.
-- [x] `.venv` virtual environment active.
+- [x] Phase 1 Project Foundation & Architecture complete, verified, and audited.
+- [x] `.venv` virtual environment active (Python 3.13.14).
 - [ ] Add data science dependencies (`pandas>=2.2.0`, `numpy>=1.26.0`, `matplotlib>=3.8.0`, `seaborn>=0.13.0`) to `pyproject.toml`.
 
 ---
