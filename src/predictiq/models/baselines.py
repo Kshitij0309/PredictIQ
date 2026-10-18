@@ -79,10 +79,42 @@ def build_random_forest_baseline(
     return build_model_pipeline(classifier=model, scale_numeric=False)
 
 
+def build_lightgbm_baseline(
+    random_state: int = 42,
+    n_estimators: int = 100,
+    learning_rate: float = 0.05,
+    num_leaves: int = 31,
+    max_depth: int = 5,
+    class_weight: Optional[str] = "balanced",
+) -> Pipeline:
+    """Build LightGBM gradient boosted decision tree pipeline.
+
+    Configuration:
+    - Bounded max_depth=5 and num_leaves=31 to balance capacity and regularization.
+    - Class weight 'balanced' to adapt loss gradients to 26.5% churn prevalence.
+    - verbosity=-1 to suppress verbose C++ iteration logs.
+    - Fixed random_state for exact determinism.
+    """
+    from lightgbm import LGBMClassifier
+
+    model = LGBMClassifier(
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        num_leaves=num_leaves,
+        max_depth=max_depth,
+        class_weight=class_weight,
+        random_state=random_state,
+        verbosity=-1,
+        n_jobs=-1,
+    )
+    return build_model_pipeline(classifier=model, scale_numeric=False)
+
+
 def get_all_baselines(random_state: int = 42) -> Dict[str, Pipeline]:
-    """Retrieve all baseline pipelines ready for training and comparative evaluation."""
+    """Retrieve all candidate pipelines ready for training and comparative evaluation."""
     return {
         "Dummy (Most Frequent)": build_dummy_baseline(strategy="most_frequent"),
         "Logistic Regression": build_logistic_regression_baseline(random_state=random_state),
         "Random Forest": build_random_forest_baseline(random_state=random_state),
+        "LightGBM": build_lightgbm_baseline(random_state=random_state),
     }

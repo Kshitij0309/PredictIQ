@@ -54,11 +54,13 @@ class ChurnPredictor:
         self,
         pipeline: Pipeline,
         metadata: Optional[Dict[str, Any]] = None,
+        decision_threshold: float = 0.50,
         risk_threshold_medium: float = 0.30,
         risk_threshold_high: float = 0.60,
     ) -> None:
         self.pipeline = pipeline
         self.metadata = metadata or {}
+        self.decision_threshold = decision_threshold
         self.risk_threshold_medium = risk_threshold_medium
         self.risk_threshold_high = risk_threshold_high
 
@@ -70,7 +72,8 @@ class ChurnPredictor:
     ) -> ChurnPredictor:
         """Instantiate predictor by loading serialized pipeline from disk."""
         pipeline, metadata = load_model_pipeline(model_path=model_path, metadata_path=metadata_path)
-        return cls(pipeline=pipeline, metadata=metadata)
+        thresh = float(metadata.get("optimal_decision_threshold", 0.50))
+        return cls(pipeline=pipeline, metadata=metadata, decision_threshold=thresh)
 
     def _normalize_and_validate_input(
         self,
@@ -127,8 +130,11 @@ class ChurnPredictor:
         self,
         data: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]],
     ) -> np.ndarray:
-        """Generate binary churn predictions (1 = Churn, 0 = Retained)."""
+        """Generate binary churn predictions using the configured decision threshold."""
         df = self._normalize_and_validate_input(data)
+        if hasattr(self.pipeline, "predict_proba"):
+            probas = self.predict_proba(df)
+            return (probas >= self.decision_threshold).astype(int)
         return self.pipeline.predict(df).astype(int)
 
     def predict_proba(
@@ -153,13 +159,14 @@ class ChurnPredictor:
         raw_df = pd.DataFrame([data]) if isinstance(data, dict) else pd.DataFrame(data)
         clean_df = self._normalize_and_validate_input(raw_df)
 
-        preds = self.predict(clean_df)
         has_proba = hasattr(self.pipeline, "predict_proba")
         probas = self.predict_proba(clean_df) if has_proba else np.full(len(clean_df), np.nan)
+        preds = self.predict(clean_df)
 
         results = raw_df.copy()
         results["predicted_churn"] = np.where(preds == 1, "Yes", "No")
         results["churn_probability"] = np.round(probas, 4)
+        results["decision_threshold"] = round(self.decision_threshold, 4)
 
         # Risk tier assignment
         def assign_risk(p: float) -> str:

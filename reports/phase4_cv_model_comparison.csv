@@ -1,0 +1,4 @@
+model_name,cv_mean_pr_auc,cv_std_pr_auc,runtime_seconds,best_parameters
+Random Forest,0.6607,0.022,6.45,"{'classifier__n_estimators': 120, 'classifier__min_samples_leaf': 3, 'classifier__max_features': 'sqrt', 'classifier__max_depth': 8}"
+LightGBM,0.6598,0.0287,6.02,"{'classifier__num_leaves': 15, 'classifier__n_estimators': 140, 'classifier__min_child_samples': 15, 'classifier__max_depth': 4, 'classifier__learning_rate': 0.03}"
+Logistic Regression,0.6559,0.0221,6.31,"{'classifier__solver': 'saga', 'classifier__C': 5.0}"

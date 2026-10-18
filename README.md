@@ -189,37 +189,45 @@ docker compose down -v
 - [x] Comprehensive pytest test suite (42 tests passing).
 - [x] Complete architecture documentation, ADR-001, changelog, and setup guide.
 
+### Phase 2 Implemented
+- [x] Automated IBM Telco Customer Churn dataset ingestion with SHA-256 digest validation.
+- [x] Non-destructive validation engine covering schema, boundary rules, and domain invariants.
+- [x] Type normalization, interim data generation, and complete 25-cell exploratory analysis notebook.
+
 ### Phase 3 Implemented
-- [x] Leakage-safe stratified train/test split with zero index overlap and class preservation (`src/predictiq/data/loader.py`).
-- [x] Reusable, testable domain feature engineering pipeline (`src/predictiq/features/`).
-- [x] Naive baseline (`DummyClassifier`), linear baseline (`LogisticRegression`), and tree-based baseline (`RandomForestClassifier`).
-- [x] 5-Fold Stratified Cross-Validation strictly restricted to training data.
-- [x] Full classification evaluation suite (PR-AUC, ROC-AUC, Recall, Precision, F1, Brier score, Confusion Matrices).
-- [x] Local and remote MLflow experiment tracking integration (`src/predictiq/tracking/`).
-- [x] Joblib model persistence paired with rich metadata (`src/predictiq/models/persistence.py`).
-- [x] Production inference engine with schema validation and risk tiers (`src/predictiq/inference/predictor.py`).
-- [x] Standalone CLI execution script (`scripts/train_baseline.py`).
-- [x] 23 new deterministic unit tests added (total **86 passing tests**).
+- [x] Stratified train/test splitting with zero index overlap (`src/predictiq/data/loader.py`).
+- [x] Domain feature engineering (`DomainFeatureEngineer`) and leakage-safe preprocessing.
+- [x] Baseline models (Dummy, Logistic Regression, Random Forest) with MLflow experiment tracking.
+- [x] Production inference engine (`ChurnPredictor`) with input validation and risk tiering.
 
-### Execution Commands (Phase 3 Modeling & Inference)
+### Phase 4 Implemented
+- [x] **Evaluation Protocol Correction:** Historical Seed 42 test scores treated as exploratory; model selection governed strictly by training-only 5-fold CV (PR-AUC); isolated evaluation split (Seed 2026, $N=1,409$) locked until final single evaluation.
+- [x] **Gradient Boosting & Tuning:** Verified LightGBM on Python 3.13; hyperparameter tuning with `RandomizedSearchCV`; Random Forest selected as champion ($0.6607 \pm 0.0220$ CV PR-AUC).
+- [x] **Probability Calibration:** Platt sigmoid scaling reducing Brier score loss from 0.1602 to 0.1354 (+15.42%).
+- [x] **Decision Threshold Optimization:** Training OOF F1-maximization selected $p^* = 0.3400$, boosting final test churn recall from 57.22% to 71.39% (+14.17 pp).
+- [x] **Explainability (TreeSHAP):** Global beeswarm feature attribution and local high/low risk archetype waterfall plots.
+- [x] **Unified Production Packaging:** Fitted pipeline, metadata, and optimal threshold serialized to `models/churn_champion_model.joblib`.
+- [x] **Automated Test Suite:** Expanded to **97 passing tests** (100% pass rate).
+
+### Execution Commands (Phase 4 Advanced Tuning & Inference)
 ```powershell
-# Run baseline model training, cross-validation, and MLflow logging
-python scripts/train_baseline.py
+# Run Phase 4 hyperparameter tuning, calibration, threshold optimization, and SHAP explainability
+python scripts/tune_and_train.py
 
-# Run all 86 unit and integration tests
+# Run all 97 unit and integration tests
 pytest -v
 
 # Run Ruff linter
 ruff check .
 
-# Test inference on saved model
+# Test inference on tuned champion model (with optimal threshold p*=0.3400)
 python -c "
 from predictiq.inference import ChurnPredictor
-predictor = ChurnPredictor.from_saved_model()
-print('Predictor successfully loaded and operational!')
+predictor = ChurnPredictor.from_saved_model('models/churn_champion_model.joblib')
+print(f'Predictor loaded with optimal threshold: {predictor.decision_threshold}')
 "
 ```
 
 ### Current Limitations & Exclusions
-- **Hyperparameter search & threshold calibration:** Model baselines use sensible defaults. Comprehensive hyperparameter optimization and profit-maximizing threshold calibration belong to Phase 4.
+- **API Serving & Monitoring:** Containerized REST API endpoints (FastAPI) belong to Phase 5; continuous drift monitoring belongs to Phase 6.
 - **Docker runtime requires active Docker Desktop:** `docker compose config` validates deterministically; local file tracking (`./mlruns`) acts as the verified fallback when the Docker daemon is offline.

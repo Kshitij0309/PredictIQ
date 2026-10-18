@@ -25,6 +25,12 @@ POSITIVE_TARGET_LABEL: str = "Yes"
 NEGATIVE_TARGET_LABEL: str = "No"
 IDENTIFIER_COLUMNS: Tuple[str, ...] = ("customerID",)
 
+# Documented split seeds enforcing Evaluation Protocol Independence
+# Seed 42: Historical exploratory split (used in Phase 3 baselines exploration)
+DEFAULT_EXPLORATORY_SPLIT_SEED: int = 42
+# Seed 2026: Fresh held-out evaluation split (frozen and isolated from model selection)
+ISOLATED_EVALUATION_SPLIT_SEED: int = 2026
+
 
 class DataLoadError(ValueError):
     """Raised when data loading, schema requirements, or split preconditions fail."""
@@ -41,6 +47,8 @@ class DatasetSplits:
     target_name: str = TARGET_COLUMN
     positive_label: int = 1
     negative_label: int = 0
+    split_seed: int = DEFAULT_EXPLORATORY_SPLIT_SEED
+    split_purpose: str = "exploratory"
 
     @property
     def train_size(self) -> int:
@@ -190,6 +198,7 @@ def split_dataset(
     test_size: float = 0.20,
     random_state: int = 42,
     stratify: bool = True,
+    split_purpose: str = "exploratory",
 ) -> DatasetSplits:
     """Create a reproducible, leakage-safe stratified train/test split.
 
@@ -242,15 +251,43 @@ def split_dataset(
         X_test=X_test.reset_index(drop=True),
         y_train=y_train.reset_index(drop=True),
         y_test=y_test.reset_index(drop=True),
+        split_seed=random_state,
+        split_purpose=split_purpose,
     )
 
 
 def load_and_split_data(
     data_path: Optional[Path | str] = None,
     test_size: float = 0.20,
-    random_state: int = 42,
+    random_state: int = DEFAULT_EXPLORATORY_SPLIT_SEED,
+    split_purpose: str = "exploratory",
 ) -> DatasetSplits:
     """End-to-end convenience loader: loads data, validates, separates X/y, and splits."""
     df = load_telco_churn_data(data_path=data_path)
     X, y = prepare_features_and_target(df)
-    return split_dataset(X, y, test_size=test_size, random_state=random_state, stratify=True)
+    return split_dataset(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=True,
+        split_purpose=split_purpose,
+    )
+
+
+def load_and_split_isolated_evaluation_data(
+    data_path: Optional[Path | str] = None,
+    test_size: float = 0.20,
+    random_state: int = ISOLATED_EVALUATION_SPLIT_SEED,
+) -> DatasetSplits:
+    """Load and partition dataset into a strictly isolated held-out evaluation split.
+
+    Used strictly for final evaluation of the frozen champion model after all tuning,
+    selection, and threshold decisions have been finalized on training folds.
+    """
+    return load_and_split_data(
+        data_path=data_path,
+        test_size=test_size,
+        random_state=random_state,
+        split_purpose="isolated_evaluation",
+    )

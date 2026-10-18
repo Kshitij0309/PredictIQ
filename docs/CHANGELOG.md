@@ -4,6 +4,45 @@ All notable changes, architectural decisions, and verification results for the P
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-18
+
+### Phase 4: Evaluation Protocol Correction, Advanced Modeling, Calibration, Threshold Optimization & Explainability
+
+#### Added
+- **Part A — Evaluation Protocol Correction (`src/predictiq/data/loader.py`, `tests/test_evaluation_protocol.py`):**
+  - Audited and corrected Phase 3 evaluation protocol; classified historical Seed 42 test scores as exploratory benchmarks.
+  - Enforced model selection governed exclusively by training-only 5-fold Stratified Cross-Validation on Average Precision (PR-AUC) across identical folds.
+  - Created isolated evaluation split seed (`ISOLATED_EVALUATION_SPLIT_SEED = 2026`) preserving class balance (26.54% churn) with zero index leakage.
+  - Frozen champion pipeline, calibration parameters, and decision threshold before single held-out evaluation.
+- **Part B — Advanced Gradient Boosted Trees (`src/predictiq/models/baselines.py`):**
+  - Verified LightGBM compatibility on Python 3.13.14.
+  - Added `build_lightgbm_baseline` with bounded depth and leaf-wise histogram growth.
+- **Hyperparameter Optimization (`src/predictiq/models/tuning.py`, `tests/test_tuning.py`):**
+  - `RandomizedSearchCV` on training 5-fold CV optimizing PR-AUC.
+  - Random Forest selected as champion with CV PR-AUC $0.6607 \pm 0.0220$, outperforming LightGBM ($0.6598 \pm 0.0287$) and Logistic Regression ($0.6559 \pm 0.0221$).
+- **Probability Calibration (`src/predictiq/models/calibration.py`, `tests/test_calibration.py`):**
+  - Implemented Platt sigmoid scaling via `CalibratedClassifierCV(method='sigmoid', cv=5)` on training folds.
+  - Reduced Brier score from 0.1602 to 0.1354 (+15.42% improvement).
+  - Diagnostic reliability diagram saved to `reports/figures/calibration_curve.png`.
+- **Decision Threshold Optimization (`src/predictiq/models/thresholds.py`, `tests/test_thresholds.py`):**
+  - Implemented OOF threshold sweep optimizing empirical F1-score without speculative cost assumptions.
+  - Supported configurable `BusinessCostMatrix`.
+  - Selected and froze $p^* = 0.3400$, increasing final test churn catch rate from 57.22% to 71.39% (+14.17 pp).
+  - Diagnostic trade-off curve saved to `reports/figures/threshold_tradeoff.png`.
+- **Model Explainability (`src/predictiq/models/explainability.py`, `tests/test_explainability.py`):**
+  - Integrated TreeSHAP feature attributions on fitted pipeline.
+  - Identified top churn predictive drivers: `is_month_to_month`, `Contract_Month-to-month`, `tenure`, `InternetService_Fiber optic`, `is_fiber_optic`.
+  - Exported `reports/figures/shap_summary.png`, `shap_local_high_risk.png`, and `shap_local_low_risk.png`.
+- **Production Persistence & Inference Integration (`src/predictiq/inference/predictor.py`):**
+  - Serialized champion model to `models/churn_champion_model.joblib` and runtime metadata to `models/churn_champion_model_metadata.json`.
+  - Updated `ChurnPredictor` to dynamically apply saved threshold during inference.
+- **CLI Runner (`scripts/tune_and_train.py`):**
+  - Standalone CLI for Phase 4 end-to-end execution.
+
+#### Changed
+- Pytest suite expanded from 86 to 97 passing tests (100% pass rate in 20.40s).
+- Matplotlib backend explicitly set to `Agg` across all modules to eliminate headless Tkinter dependency.
+
 ## [0.3.0] - 2026-10-18
 
 ### Phase 3: Feature Engineering, Baseline Modeling & MLflow Experiment Tracking

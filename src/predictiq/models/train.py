@@ -1,7 +1,10 @@
 """End-to-end model training, cross-validation, and MLflow orchestration for PredictIQ.
 
-Executes leakage-safe training, 5-fold cross-validation, held-out test evaluation,
-artifact generation, MLflow experiment logging, and best-model persistence.
+Enforces Evaluation Protocol Independence:
+1. Model selection and hyperparameter optimization strictly use training-only cross-validation.
+2. Probability calibration and decision threshold selection are performed on training folds.
+3. The selected model, calibration, and threshold are frozen before evaluating the isolated test set.
+4. The held-out test evaluation is performed exactly once for final unbiased reporting.
 """
 
 from __future__ import annotations
@@ -14,19 +17,29 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 
 from predictiq.config import get_config
-from predictiq.data.loader import DatasetSplits, load_and_split_data
+from predictiq.data.loader import (
+    DEFAULT_EXPLORATORY_SPLIT_SEED,
+    ISOLATED_EVALUATION_SPLIT_SEED,
+    DatasetSplits,
+    load_and_split_data,
+    load_and_split_isolated_evaluation_data,
+)
 from predictiq.models.baselines import get_all_baselines
+from predictiq.models.calibration import calibrate_model_pipeline
 from predictiq.models.evaluation import (
     ModelEvaluationResult,
     build_comparison_dataframe,
     evaluate_model,
     save_evaluation_artifacts,
 )
+from predictiq.models.explainability import generate_shap_explanations
 from predictiq.models.persistence import save_model_pipeline
+from predictiq.models.thresholds import BusinessCostMatrix, optimize_decision_threshold
+from predictiq.models.tuning import tune_all_candidate_models
 from predictiq.tracking.manager import MLflowTrackingManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -49,11 +62,10 @@ def run_cross_validation_evaluation(
     pr_aucs: List[float] = []
     roc_aucs: List[float] = []
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
+    for _, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
         X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
         y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
-        # Fit fresh pipeline clone strictly on fold training data
         from sklearn.base import clone
 
         fold_pipeline = clone(pipeline)
@@ -83,58 +95,35 @@ def run_cross_validation_evaluation(
 def run_baseline_training_pipeline(
     data_path: Optional[Path | str] = None,
     test_size: float = 0.20,
-    random_state: int = 42,
+    random_state: int = DEFAULT_EXPLORATORY_SPLIT_SEED,
     cv_splits: int = 5,
-    primary_metric: str = "average_precision",
     save_reports: bool = True,
     log_to_mlflow: bool = True,
     persist_best_model: bool = True,
 ) -> Dict[str, Any]:
-    """Execute complete Phase 3 baseline modeling workflow.
+    """Execute baseline modeling workflow adhering to training-only selection.
 
-    Workflow:
-    1. Load and split dataset (80% train, 20% test, stratified, seed 42).
-    2. Build naive Dummy baseline, Logistic Regression, and Random Forest pipelines.
-    3. Run 5-fold cross-validation on train data to estimate out-of-fold generalization.
-    4. Fit pipelines on full train set and evaluate on held-out test set.
-    5. Generate comparison table, ROC/PR curves, and confusion matrices.
-    6. Log runs to MLflow (using local fallback if server is offline).
-    7. Persist best model pipeline and metadata according to primary metric (PR-AUC).
-
-    Returns:
-        Dict[str, Any]: Comprehensive summary dictionary.
+    Model selection is performed STRICTLY based on training cross-validation Average Precision,
+    preserving evaluation protocol independence.
     """
     logger.info("=" * 70)
-    logger.info("PredictIQ Phase 3: Baseline Model Training & Experiment Tracking")
+    logger.info("PredictIQ Baseline Model Training (Training-Only CV Selection)")
     logger.info("=" * 70)
 
-    # 1. Load data
-    logger.info(f"Loading and splitting dataset (test_size={test_size}, random_state={random_state})...")
     splits: DatasetSplits = load_and_split_data(
         data_path=data_path,
         test_size=test_size,
         random_state=random_state,
-    )
-    logger.info(
-        f"Data prepared: Train={splits.train_size} (Churn={splits.train_positive_ratio:.1%}), "
-        f"Test={splits.test_size} (Churn={splits.test_positive_ratio:.1%}), "
-        f"Features={splits.n_features}"
+        split_purpose="exploratory",
     )
 
-    # 2. Initialize tracking manager
     tracking_manager = MLflowTrackingManager() if log_to_mlflow else None
-
-    # 3. Model candidate definitions
     model_candidates = get_all_baselines(random_state=random_state)
     evaluation_results: List[ModelEvaluationResult] = []
     fitted_pipelines: Dict[str, Pipeline] = {}
 
-    # 4. Train, CV, and evaluate each candidate
     for model_name, pipeline in model_candidates.items():
-        logger.info(f"--- Processing Candidate: {model_name} ---")
-
-        # Cross-validation on train data only
-        logger.info(f"Running {cv_splits}-fold Stratified CV on training set...")
+        logger.info(f"--- Candidate: {model_name} ---")
         mean_pr, std_pr, mean_roc, std_roc = run_cross_validation_evaluation(
             pipeline=pipeline,
             X_train=splits.X_train,
@@ -142,15 +131,11 @@ def run_baseline_training_pipeline(
             n_splits=cv_splits,
             random_state=random_state,
         )
-        logger.info(f"CV PR-AUC: {mean_pr:.4f} (+/- {std_pr:.4f}) | CV ROC-AUC: {mean_roc:.4f}")
+        logger.info(f"Training CV PR-AUC: {mean_pr:.4f} (+/- {std_pr:.4f}) | CV ROC-AUC: {mean_roc:.4f}")
 
-        # Fit on full training set
-        logger.info("Fitting on complete training set...")
         pipeline.fit(splits.X_train, splits.y_train)
         fitted_pipelines[model_name] = pipeline
 
-        # Evaluate on held-out test set
-        logger.info("Evaluating on held-out test set...")
         model_type = pipeline.named_steps["classifier"].__class__.__name__
         eval_result = evaluate_model(
             model=pipeline,
@@ -165,31 +150,19 @@ def run_baseline_training_pipeline(
             store_predictions=True,
         )
         evaluation_results.append(eval_result)
-        logger.info(
-            f"Test Metrics -> PR-AUC: {eval_result.average_precision} | "
-            f"ROC-AUC: {eval_result.roc_auc} | F1: {eval_result.f1_score:.4f} | "
-            f"Acc: {eval_result.accuracy:.4f} | Rec: {eval_result.recall:.4f}"
-        )
 
-    # 5. Save evaluation artifacts
+    config = get_config()
+    rep_dir = config.paths.root_dir / "reports"
     artifact_paths: Dict[str, Path] = {}
     if save_reports:
-        logger.info("Generating comparison tables and figures...")
-        config = get_config()
-        rep_dir = config.paths.root_dir / "reports"
         artifact_paths = save_evaluation_artifacts(evaluation_results, reports_dir=rep_dir)
-        logger.info(f"Evaluation artifacts saved to: {rep_dir}")
 
-    # 6. MLflow logging
     mlflow_runs: Dict[str, Any] = {}
     if tracking_manager is not None:
-        logger.info(f"Logging runs to MLflow (Mode: {tracking_manager.tracking_mode})...")
         for res in evaluation_results:
             pipe = fitted_pipelines[res.model_name]
             classifier = pipe.named_steps["classifier"]
             params = classifier.get_params()
-            params["scale_numeric"] = pipe.named_steps["preprocessor"].transformers[0][1].steps[-1][0] == "scaler"
-
             run_res = tracking_manager.log_model_run(
                 model_name=res.model_name,
                 pipeline=pipe,
@@ -206,23 +179,23 @@ def run_baseline_training_pipeline(
             )
             mlflow_runs[res.model_name] = run_res
 
-    # 7. Model selection based on primary metric
+    # Select champion strictly by Training CV Mean PR-AUC (NOT test score)
     comp_df = build_comparison_dataframe(evaluation_results)
-    best_row = comp_df.iloc[0]
+    best_row = comp_df.sort_values(by="cv_mean_pr_auc", ascending=False).iloc[0]
     best_model_name = str(best_row["model_name"])
     best_pipeline = fitted_pipelines[best_model_name]
+
     logger.info(
-        f"Selected Best Model: '{best_model_name}' based on {primary_metric} = "
-        f"{best_row.get(primary_metric, 'N/A')}"
+        f"Selected Best Baseline: '{best_model_name}' based on Training CV PR-AUC = "
+        f"{best_row.get('cv_mean_pr_auc'):.4f} (+/- {best_row.get('cv_std_pr_auc', 0):.4f})"
     )
 
-    # 8. Model persistence
     saved_model_paths: Optional[Tuple[Path, Path]] = None
     if persist_best_model:
         metadata = {
             "selected_model_name": best_model_name,
-            "primary_metric": primary_metric,
-            "primary_metric_score": best_row.get(primary_metric),
+            "selection_criterion": "highest_training_cv_mean_pr_auc",
+            "cv_mean_pr_auc": best_row.get("cv_mean_pr_auc"),
             "test_summary": best_row.to_dict(),
             "train_size": splits.train_size,
             "test_size": splits.test_size,
@@ -237,10 +210,6 @@ def run_baseline_training_pipeline(
             model_name="churn_baseline_model",
         )
 
-    logger.info("=" * 70)
-    logger.info("Phase 3 Baseline Modeling Workflow Completed Successfully.")
-    logger.info("=" * 70)
-
     return {
         "comparison_dataframe": comp_df,
         "evaluation_results": evaluation_results,
@@ -252,7 +221,278 @@ def run_baseline_training_pipeline(
     }
 
 
+def run_phase4_modeling_pipeline(
+    data_path: Optional[Path | str] = None,
+    isolated_eval_seed: int = ISOLATED_EVALUATION_SPLIT_SEED,
+    cv_splits: int = 5,
+    n_tuning_iter: int = 10,
+    cost_matrix: Optional[BusinessCostMatrix] = None,
+    save_reports: bool = True,
+    log_to_mlflow: bool = True,
+    persist_champion: bool = True,
+) -> Dict[str, Any]:
+    """Execute complete Phase 4 modeling, tuning, calibration, thresholding & explainability workflow.
+
+    Protocol Guarantees:
+    1. Dataset is split using isolated_eval_seed (2026). The test set is locked until final evaluation.
+    2. Candidate models (Logistic Regression, Random Forest, LightGBM) are tuned and compared on training CV.
+    3. The champion model is selected and frozen strictly based on training CV PR-AUC.
+    4. Probabilities are calibrated on training folds via Platt scaling (sigmoid).
+    5. The decision threshold p* is optimized on training out-of-fold predictions and frozen.
+    6. Held-out test set is evaluated exactly once with the frozen champion model and frozen threshold.
+    7. TreeSHAP explanations are computed on a representative training sample.
+    """
+    logger.info("=" * 75)
+    logger.info("PredictIQ Phase 4: Advanced Modeling, Tuning, Calibration & Explainability")
+    logger.info("=" * 75)
+
+    # Step 1: Load and isolate evaluation data
+    logger.info(f"[1/7] Partitioning dataset into isolated split (seed={isolated_eval_seed})...")
+    eval_splits: DatasetSplits = load_and_split_isolated_evaluation_data(
+        data_path=data_path,
+        test_size=0.20,
+        random_state=isolated_eval_seed,
+    )
+    logger.info(
+        f"Data partitioned: Training={eval_splits.train_size} rows, "
+        f"Held-Out Evaluation={eval_splits.test_size} rows (LOCKED)."
+    )
+
+    config = get_config()
+    rep_dir = config.paths.root_dir / "reports"
+    tracking_manager = MLflowTrackingManager() if log_to_mlflow else None
+
+    # Step 2: Hyperparameter Tuning on Training Data Only
+    logger.info(f"[2/7] Running training-only Stratified {cv_splits}-Fold CV hyperparameter tuning...")
+    tuning_results = tune_all_candidate_models(
+        X_train=eval_splits.X_train,
+        y_train=eval_splits.y_train,
+        n_iter=n_tuning_iter,
+        cv_folds=cv_splits,
+        random_state=isolated_eval_seed,
+    )
+
+    # Step 3: Model Selection on Training CV Only (Frozen Pre-Test)
+    logger.info("[3/7] Selecting and freezing champion model based strictly on Training CV PR-AUC...")
+    best_candidate_name = max(tuning_results.keys(), key=lambda k: tuning_results[k].best_cv_score)
+    best_tuning_result = tuning_results[best_candidate_name]
+    frozen_pipeline = best_tuning_result.best_estimator
+
+    logger.info(
+        f"Champion Selected: '{best_candidate_name}' | "
+        f"CV PR-AUC: {best_tuning_result.best_cv_score:.4f} (+/- {best_tuning_result.cv_std_score:.4f}) | "
+        f"Best Params: {best_tuning_result.best_params}"
+    )
+
+    # Step 4: Probability Calibration (Training Folds Only)
+    logger.info("[4/7] Calibrating champion probabilities via Sigmoid Platt Scaling on training folds...")
+    calibration_res = calibrate_model_pipeline(
+        pipeline=frozen_pipeline,
+        X_train=eval_splits.X_train,
+        y_train=eval_splits.y_train,
+        method="sigmoid",
+        cv=cv_splits,
+        reports_dir=rep_dir if save_reports else None,
+    )
+    calibrated_pipeline = calibration_res.calibrated_pipeline
+
+    # Step 5: Decision Threshold Optimization (Training Out-Of-Fold Only)
+    logger.info("[5/7] Optimizing decision threshold on training out-of-fold predictions...")
+    oof_probas = cross_val_predict(
+        calibrated_pipeline,
+        eval_splits.X_train,
+        eval_splits.y_train,
+        cv=cv_splits,
+        method="predict_proba",
+    )[:, 1]
+
+    threshold_res = optimize_decision_threshold(
+        y_train_oof_true=eval_splits.y_train,
+        y_train_oof_probas=oof_probas,
+        cost_matrix=cost_matrix,
+        reports_dir=rep_dir if save_reports else None,
+    )
+    frozen_threshold = threshold_res.optimal_threshold
+    logger.info(f"Frozen Decision Threshold: p* = {frozen_threshold:.4f} (Selection: {threshold_res.selection_strategy})")
+
+    # Step 6: Single Final Evaluation on Isolated Held-Out Test Set
+    logger.info("[6/7] Evaluating frozen champion model on isolated held-out test data (ONCE)...")
+    calibrated_pipeline.fit(eval_splits.X_train, eval_splits.y_train)
+
+    test_probas = calibrated_pipeline.predict_proba(eval_splits.X_test)[:, 1]
+    test_preds_default = (test_probas >= 0.50).astype(int)
+    test_preds_optimal = (test_probas >= frozen_threshold).astype(int)
+
+    # Evaluate standard metrics (probability based)
+    final_eval_result = evaluate_model(
+        model=calibrated_pipeline,
+        X_test=eval_splits.X_test,
+        y_test=eval_splits.y_test,
+        model_name=f"{best_candidate_name} (Calibrated)",
+        model_type=best_candidate_name,
+        cv_mean_pr_auc=best_tuning_result.best_cv_score,
+        cv_std_pr_auc=best_tuning_result.cv_std_score,
+        store_predictions=True,
+    )
+
+    from sklearn.metrics import f1_score, precision_score, recall_score
+
+    # Compute metric comparisons at default 0.50 vs optimal threshold
+    f1_default = float(f1_score(eval_splits.y_test, test_preds_default, zero_division=0))
+    rec_default = float(recall_score(eval_splits.y_test, test_preds_default, zero_division=0))
+    prec_default = float(precision_score(eval_splits.y_test, test_preds_default, zero_division=0))
+
+    f1_opt = float(f1_score(eval_splits.y_test, test_preds_optimal, zero_division=0))
+    rec_opt = float(recall_score(eval_splits.y_test, test_preds_optimal, zero_division=0))
+    prec_opt = float(precision_score(eval_splits.y_test, test_preds_optimal, zero_division=0))
+
+    logger.info(
+        f"Final Test Metrics -> PR-AUC: {final_eval_result.average_precision:.4f} | "
+        f"ROC-AUC: {final_eval_result.roc_auc:.4f} | Brier: {final_eval_result.brier_score:.4f}"
+    )
+    logger.info(
+        f"Threshold Impact -> Default (p=0.50): F1={f1_default:.4f}, Rec={rec_default:.4f}, Prec={prec_default:.4f} | "
+        f"Optimal (p*={frozen_threshold:.2f}): F1={f1_opt:.4f}, Rec={rec_opt:.4f}, Prec={prec_opt:.4f}"
+    )
+
+    # Step 7: Explainability & SHAP
+    logger.info("[7/7] Computing TreeSHAP global and local archetype explanations...")
+    shap_res = generate_shap_explanations(
+        pipeline=frozen_pipeline,  # Use base tree pipeline for fast TreeSHAP attribution
+        X_sample=eval_splits.X_train,
+        reports_dir=rep_dir if save_reports else None,
+    )
+
+    # Save artifacts & export reports
+    artifact_paths: Dict[str, Path] = {}
+    if save_reports:
+        # Comparison table of CV scores across candidates
+        cv_records = []
+        for name, tr in tuning_results.items():
+            cv_records.append({
+                "model_name": name,
+                "cv_mean_pr_auc": round(tr.best_cv_score, 4),
+                "cv_std_pr_auc": round(tr.cv_std_score, 4),
+                "runtime_seconds": round(tr.runtime_seconds, 2),
+                "best_parameters": str(tr.best_params),
+            })
+        cv_df = pd.DataFrame(cv_records).sort_values(by="cv_mean_pr_auc", ascending=False)
+        cv_df.to_csv(rep_dir / "phase4_cv_model_comparison.csv", index=False)
+
+        # Final test evaluation summary
+        test_summary_df = pd.DataFrame([{
+            "model_name": f"{best_candidate_name} (Calibrated)",
+            "test_pr_auc": round(final_eval_result.average_precision, 4),
+            "test_roc_auc": round(final_eval_result.roc_auc, 4),
+            "test_brier_score": round(final_eval_result.brier_score, 4),
+            "test_f1_optimal_threshold": round(f1_opt, 4),
+            "test_recall_optimal_threshold": round(rec_opt, 4),
+            "test_precision_optimal_threshold": round(prec_opt, 4),
+            "optimal_threshold": round(frozen_threshold, 4),
+            "test_f1_default_threshold": round(f1_default, 4),
+            "test_recall_default_threshold": round(rec_default, 4),
+            "test_precision_default_threshold": round(prec_default, 4),
+        }])
+        test_summary_df.to_csv(rep_dir / "phase4_final_test_summary.csv", index=False)
+
+        artifact_paths = {
+            "cv_comparison_csv": rep_dir / "phase4_cv_model_comparison.csv",
+            "test_summary_csv": rep_dir / "phase4_final_test_summary.csv",
+        }
+        if calibration_res.plot_path:
+            artifact_paths["calibration_curve"] = calibration_res.plot_path
+        if threshold_res.plot_path:
+            artifact_paths["threshold_tradeoff"] = threshold_res.plot_path
+        if shap_res.summary_plot_path:
+            artifact_paths["shap_summary"] = shap_res.summary_plot_path
+        if shap_res.local_high_risk_plot_path:
+            artifact_paths["shap_high_risk"] = shap_res.local_high_risk_plot_path
+        if shap_res.local_low_risk_plot_path:
+            artifact_paths["shap_low_risk"] = shap_res.local_low_risk_plot_path
+
+    # Persist champion model pipeline and metadata
+    saved_paths: Optional[Tuple[Path, Path]] = None
+    if persist_champion:
+        meta = {
+            "model_name": f"{best_candidate_name} (Calibrated)",
+            "base_estimator": best_candidate_name,
+            "best_hyperparameters": best_tuning_result.best_params,
+            "optimal_decision_threshold": frozen_threshold,
+            "threshold_selection_strategy": threshold_res.selection_strategy,
+            "brier_score_uncalibrated": calibration_res.brier_score_uncalibrated,
+            "brier_score_calibrated": calibration_res.brier_score_calibrated,
+            "brier_improvement_pct": calibration_res.brier_improvement_pct,
+            "cv_mean_pr_auc": best_tuning_result.best_cv_score,
+            "cv_std_pr_auc": best_tuning_result.cv_std_score,
+            "final_test_pr_auc": final_eval_result.average_precision,
+            "final_test_roc_auc": final_eval_result.roc_auc,
+            "final_test_f1_optimal_threshold": f1_opt,
+            "final_test_recall_optimal_threshold": rec_opt,
+            "final_test_precision_optimal_threshold": prec_opt,
+            "split_seed": isolated_eval_seed,
+            "split_purpose": "isolated_evaluation",
+            "top_10_shap_features": shap_res.top_10_features,
+            "python_version": sys.version,
+        }
+        saved_paths = save_model_pipeline(
+            pipeline=calibrated_pipeline,
+            metadata=meta,
+            model_name="churn_champion_model",
+        )
+
+    # Log to MLflow
+    if tracking_manager is not None:
+        tracking_manager.log_model_run(
+            model_name=f"champion_{best_candidate_name.lower().replace(' ', '_')}",
+            pipeline=calibrated_pipeline,
+            eval_result=final_eval_result,
+            hyperparameters={
+                **best_tuning_result.best_params,
+                "optimal_threshold": frozen_threshold,
+                "calibration_method": "sigmoid",
+            },
+            X_sample=eval_splits.X_train.head(5),
+            dataset_meta={
+                "split_seed": isolated_eval_seed,
+                "split_purpose": "isolated_evaluation",
+                "train_size": eval_splits.train_size,
+                "test_size": eval_splits.test_size,
+            },
+            artifact_paths=artifact_paths,
+            tags={"phase": "phase_4_champion", "status": "frozen_evaluated"},
+        )
+
+    logger.info("=" * 75)
+    logger.info("Phase 4 Pipeline Completed Successfully.")
+    logger.info("=" * 75)
+
+    return {
+        "champion_model_name": best_candidate_name,
+        "tuning_results": tuning_results,
+        "best_tuning_result": best_tuning_result,
+        "calibration_result": calibration_res,
+        "threshold_result": threshold_res,
+        "final_test_metrics": {
+            "pr_auc": final_eval_result.average_precision,
+            "roc_auc": final_eval_result.roc_auc,
+            "brier_score": final_eval_result.brier_score,
+            "f1_optimal": f1_opt,
+            "recall_optimal": rec_opt,
+            "precision_optimal": prec_opt,
+            "f1_default": f1_default,
+            "recall_default": rec_default,
+            "precision_default": prec_default,
+        },
+        "shap_result": shap_res,
+        "saved_model_paths": saved_paths,
+        "artifact_paths": artifact_paths,
+    }
+
+
 if __name__ == "__main__":
-    results = run_baseline_training_pipeline()
-    print("\n--- Model Comparison Summary ---")
-    print(results["comparison_dataframe"].to_string(index=False))
+    results = run_phase4_modeling_pipeline()
+    print("\n--- Champion Model Selected ---")
+    print(f"Model: {results['champion_model_name']}")
+    print(f"Optimal Threshold: p* = {results['threshold_result'].optimal_threshold:.4f}")
+    print(f"Test PR-AUC: {results['final_test_metrics']['pr_auc']:.4f}")
+    print(f"Test F1 at p*: {results['final_test_metrics']['f1_optimal']:.4f}")
