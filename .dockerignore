@@ -1,0 +1,61 @@
+# ==============================================================================
+# PredictIQ — Docker Build Ignore Configuration
+# ==============================================================================
+
+# Git and Version Control
+.git/
+.gitignore
+.gitattributes
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Secrets and Local Configurations
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Data Layer (Never bake training or interim data into images)
+data/raw/
+data/interim/
+data/processed/
+data/external/
+
+# Testing and Coverage
+tests/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+pytestdebug.log
+
+# Jupyter Notebooks
+notebooks/
+.ipynb_checkpoints
+
+# MLflow & Database Local Mounts
+mlruns/
+mlartifacts/
+postgres_data/
+
+# Logs and Scratch Files
+logs/
+*.log
+scratch/
+tmp/
+artifacts/
+
+# Documentation source markdown (not needed inside container)
+docs/

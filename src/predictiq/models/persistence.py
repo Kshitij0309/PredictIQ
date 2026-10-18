@@ -87,7 +87,23 @@ def load_model_pipeline(
     config = get_config()
     default_dir = config.paths.root_dir / "models"
 
-    m_path = Path(model_path) if model_path else (default_dir / "churn_baseline_model.joblib")
+    if model_path:
+        m_path = Path(model_path)
+    else:
+        champion_path = default_dir / "churn_champion_model.joblib"
+        baseline_path = default_dir / "churn_baseline_model.joblib"
+        cwd_champion = Path.cwd() / "models" / "churn_champion_model.joblib"
+        cwd_baseline = Path.cwd() / "models" / "churn_baseline_model.joblib"
+        if champion_path.is_file():
+            m_path = champion_path
+        elif cwd_champion.is_file():
+            m_path = cwd_champion
+        elif baseline_path.is_file():
+            m_path = baseline_path
+        elif cwd_baseline.is_file():
+            m_path = cwd_baseline
+        else:
+            m_path = champion_path
     meta_path = (
         Path(metadata_path)
         if metadata_path

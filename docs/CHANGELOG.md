@@ -4,6 +4,45 @@ All notable changes, architectural decisions, and verification results for the P
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-18
+
+### Phase 5: Production API Serving and Containerized Deployment
+
+#### Added
+- **Production FastAPI Application (`src/predictiq/api/app.py`, `src/predictiq/api/main.py`):**
+  - Modern FastAPI application factory with lifespan model loading and zero retraining on startup.
+  - PII-safe structured request logging middleware logging method, path, response status, and processing duration.
+  - Automatic suppression of interactive OpenAPI docs (`/docs`, `/redoc`, `openapi.json`) when `ENVIRONMENT=production`.
+  - Non-blocking CPU inference offloading using Starlette's `run_in_threadpool`.
+- **REST API Endpoints (`src/predictiq/api/routes.py`):**
+  - `GET /health`: Liveness probe reporting process status, environment, uptime, and UTC timestamp.
+  - `GET /ready`: Readiness probe verifying model pipeline availability (returns 503 if model is unready).
+  - `GET /model-info`: Exposes model version, algorithm, Platt calibration method, frozen threshold ($p^* = 0.3400$), and safe metrics without leaking paths or customer identifiers.
+  - `POST /predict`: Single customer churn scoring returning predicted label, calibrated probability, threshold, and risk tier.
+  - `POST /predict/batch`: High-throughput batch inference endpoint bounded to 1–500 records.
+- **Pydantic v2 Schemas (`src/predictiq/api/schemas.py`):**
+  - Strict input validation for 19 customer features (`CustomerInputSchema`) with bound checks and enum constraints.
+  - Bounded batch container schema (`BatchCustomerInputSchema`) preventing unbounded memory usage.
+  - Standardized error schema (`ErrorResponse`) returning sanitized messages.
+- **Containerization & Deployment (`Dockerfile`, `.dockerignore`, `docker-compose.yml`):**
+  - Production multi-layer Dockerfile on `python:3.13-slim` running under non-root unprivileged user `appuser` (UID 10001).
+  - Integrated health check probe via `curl -f http://localhost:8000/health || exit 1`.
+  - Independent runtime capability without requiring PostgreSQL or MLflow services.
+  - Compose service integration verified with `docker compose config`.
+- **Latency Benchmarking (`scripts/benchmark_latency.py`):**
+  - Reproducible benchmark script measuring local inference latency percentiles.
+  - Single-record median latency measured at **208.24 ms** (p95: 258.77 ms).
+  - Batching reduces per-record inference time to **4.27 ms** at batch size 50.
+- **Automated API Tests (`tests/test_api.py`):**
+  - 16 new pytest tests covering health, readiness, model-info, prediction, batch scoring, 422 validations, unknown categoricals, batch limits, production doc hiding, and 503 unready error handling.
+  - Overall test suite expanded to **113 passing tests** (100% pass rate).
+
+#### Changed
+- Optimized `ChurnPredictor.predict_detailed()` to avoid re-evaluating 600 decision trees twice, cutting median prediction latency from ~390 ms down to 208 ms (~46% latency reduction).
+- Enhanced `load_model_pipeline()` and `_resolve_project_root()` to support `PREDICTIQ_ROOT_DIR` and `MODEL_PATH` environment variables for flexible deployment.
+
+---
+
 ## [0.4.0] - 2026-10-18
 
 ### Phase 4: Evaluation Protocol Correction, Advanced Modeling, Calibration, Threshold Optimization & Explainability

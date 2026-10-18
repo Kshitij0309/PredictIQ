@@ -66,10 +66,10 @@ graph TD
 | **Threshold & Explainability** | `src/predictiq/models/` | Training OOF decision threshold optimization ($p^*=0.3400$), cost matrix support, TreeSHAP attributions. | **Implemented & Verified** (4 unit tests passing) |
 | **Experiment Tracking** | `src/predictiq/tracking/` | MLflow tracking manager supporting remote server and automatic local filesystem fallback (`./mlruns`). | **Implemented & Verified** (2 unit tests passing) |
 | **Inference Engine** | `src/predictiq/inference/` | `ChurnPredictor` with dynamic threshold loading, probability scoring, and business risk tier assignments. | **Implemented & Verified** (4 unit tests passing) |
-| **Serving Layer** | `src/predictiq/api/` | FastAPI asynchronous inference endpoints, Pydantic v2 schemas, model artifact loading. | *Planned for Phase 5* |
+| **Serving Layer** | `src/predictiq/api/` | FastAPI asynchronous inference endpoints, Pydantic v2 schemas, threadpool offloading, model artifact loading. | **Implemented & Verified** (16 API tests passing, 5 endpoints) |
 | **Monitoring Layer**| `src/predictiq/monitoring/`| Prediction data logging, PSI/Wasserstein drift calculation, accuracy tracking. | *Planned for Phase 6* |
-| **Infrastructure** | `docker-compose.yml` | Containerized PostgreSQL 16 metadata store and MLflow 2.19 tracking server bound to localhost. | **Implemented & Verified** (validated via `docker compose config`) |
-| **Test Suite** | `tests/` | Deterministic unit, integration, protocol, and regression tests executed via `pytest`. | **Implemented & Verified** (**97 passing tests**) |
+| **Infrastructure** | `docker-compose.yml`, `Dockerfile` | Multi-stage production container (non-root, healthcheck) + PostgreSQL 16 & MLflow 2.19. | **Implemented & Verified** (validated via `docker compose config` & live container) |
+| **Test Suite** | `tests/` | Deterministic unit, integration, protocol, and API tests executed via `pytest`. | **Implemented & Verified** (**113 passing tests**) |
 
 ---
 

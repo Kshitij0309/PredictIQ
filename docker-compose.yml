@@ -61,6 +61,29 @@ services:
     networks:
       - predictiq_network
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: predictiq-api:latest
+    container_name: predictiq-api
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      PORT: 8000
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - predictiq_network
+
 volumes:
   postgres_data:
     name: predictiq_postgres_data

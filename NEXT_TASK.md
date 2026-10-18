@@ -1,34 +1,35 @@
-# PredictIQ — Next Task: Phase 5 (Production REST API Service & Deployment)
+# PredictIQ — Next Task: Phase 6 (Drift Monitoring, Prediction Logging & Observability)
 
 ## 1. Task Definition
-**Task Name:** Phase 5 — FastAPI Production Inference Service, Schema Validation & Containerized Deployment  
-**Objective:** Package the trained and calibrated churn prediction champion model into a production-grade FastAPI REST service supporting single-record scoring, batch inference, health checks, metadata introspection, and containerized execution via Docker Compose.
+**Task Name:** Phase 6 — Prediction Logging, Data & Concept Drift Monitoring, and Production Observability  
+**Objective:** Instrument the PredictIQ production serving system with continuous monitoring capabilities to detect data drift, prediction drift, and concept drift over time; log inference requests safely; and expose Prometheus metrics for operational dashboards.
 
 ---
 
 ## 2. Scope & Boundaries
 - **In Scope:**
-  1. **FastAPI Application (`src/predictiq/api/`)**:
-     - Modern asynchronous FastAPI application with CORS middleware, request ID tracking, and structured logging.
-     - Pydantic v2 data models for input customer records (`CustomerInputSchema`) and prediction responses (`PredictionResponseSchema`, `BatchPredictionResponseSchema`).
-     - Real-time schema validation ensuring strict compatibility with `DomainFeatureEngineer`.
-  2. **API Endpoints**:
-     - `GET /health`: Readiness and liveness probes reporting model version, uptime, and memory status.
-     - `GET /model/metadata`: Exposes model configuration, calibration score, optimal threshold ($p^* = 0.3400$), and top SHAP features.
-     - `POST /predict`: Single customer churn scoring returning predicted churn label, calibrated probability, decision threshold, and risk tier.
-     - `POST /predict/batch`: High-throughput batch prediction endpoint.
-  3. **Inference Pipeline Integration**:
-     - Seamless integration with `ChurnPredictor` loading `models/churn_champion_model.joblib`.
-     - Zero-downtime model loading on application startup.
-  4. **Containerization & Docker Compose**:
-     - Multi-stage Dockerfile for the API service.
-     - Docker Compose integration connecting FastAPI, MLflow, and PostgreSQL.
-  5. **Deterministic Unit & API Tests**:
-     - Pytest test suite using `httpx.AsyncClient` or `starlette.testclient.TestClient`.
-     - Edge-case testing: missing features, invalid types, extreme values, batch payload limits.
-- **Out of Scope (Deferred to Phase 6):**
-  - Drift detection and model performance monitoring (Evidently AI / Prometheus).
-  - CI/CD automated deployment pipelines.
+  1. **Asynchronous Prediction Logging (`src/predictiq/monitoring/logging.py`)**:
+     - Background logging of incoming customer payloads and model prediction scores.
+     - Privacy-preserving pseudonymization (hashing customer IDs if present, retaining feature distributions only).
+     - Storage options: structured JSONL or lightweight SQLite/PostgreSQL telemetry table.
+  2. **Data & Prediction Drift Detection (`src/predictiq/monitoring/drift.py`)**:
+     - Baseline distribution capture from the Phase 4 training dataset.
+     - Numerical drift metrics: Kolmogorov-Smirnov (KS) test, Wasserstein Distance, Population Stability Index (PSI).
+     - Categorical drift metrics: Chi-Square test, Jensen-Shannon Divergence.
+     - Scheduled or on-demand drift report generation comparing serving windows to baseline.
+  3. **Prometheus Observability Metrics (`src/predictiq/monitoring/metrics.py`)**:
+     - Serving metrics: request throughput, p50/p95/p99 latency histograms, HTTP status counters.
+     - ML metrics: prediction count by risk tier (Low/Medium/High), rolling mean churn probability.
+     - `/metrics` endpoint mounted to FastAPI application.
+  4. **Alerting Triggers & Thresholds**:
+     - Automated warning thresholds for severe feature drift (e.g., PSI > 0.25).
+     - Health alert if predicted churn distribution shifts significantly from baseline (26.5%).
+  5. **Automated Monitoring Tests**:
+     - Unit tests for drift calculation functions.
+     - Integration tests verifying prediction logging does not add latency to the `/predict` critical path.
+- **Out of Scope (Deferred to Future Phases):**
+  - Automated continuous retraining or automated model redeployment.
+  - Kubernetes / Helm deployment manifests.
 
 ---
 
@@ -36,28 +37,27 @@
 - [x] Phase 1 Project Foundation verified.
 - [x] Phase 2 Dataset Acquisition, Validation & EDA verified.
 - [x] Phase 3 Feature Engineering & MLflow Tracking verified.
-- [x] Phase 4 Evaluation Protocol Correction, Tuning, Calibration, Thresholding & SHAP verified (97 passing tests, champion model serialized with $p^* = 0.3400$).
-- [ ] Add `fastapi>=0.110.0`, `uvicorn>=0.28.0`, `httpx>=0.27.0` to `pyproject.toml`.
+- [x] Phase 4 Evaluation Protocol Correction, Tuning, Calibration, Thresholding & SHAP verified.
+- [x] Phase 5 FastAPI Production Inference Service, Containerization, and Latency Benchmarking verified (113 passing tests, Docker container validated).
 
 ---
 
 ## 4. Acceptance Criteria
-1. FastAPI service initializes and passes automated test client requests for `/health`, `/model/metadata`, and `/predict`.
-2. Prediction latency is under 50ms for single-record scoring.
-3. Input validation rejects invalid types or missing required features with descriptive HTTP 422 errors.
-4. Threshold $p^* = 0.3400$ is consistently applied during API scoring.
-5. All existing 97 tests continue to pass alongside new API tests.
+1. Prediction payloads and scores are logged asynchronously with zero impact on inference latency.
+2. Drift detection module calculates PSI and KS test statistics against baseline training distributions.
+3. `/metrics` endpoint exposes Prometheus-formatted counters and latency histograms.
+4. Comprehensive unit and integration tests added, maintaining 100% test pass rate and clean Ruff linting.
 
 ---
 
 ## 5. Verification Commands
 ```powershell
-# 1. Run all unit and API tests
+# 1. Run all unit, API, and monitoring tests
 & "D:\Projects\PredictIQ\.venv\Scripts\python.exe" -m pytest -v
 
 # 2. Run Ruff linter
 & "D:\Projects\PredictIQ\.venv\Scripts\ruff.exe" check .
 
-# 3. Launch local FastAPI server for manual testing
-& "D:\Projects\PredictIQ\.venv\Scripts\uvicorn.exe" predictiq.api.main:app --host 0.0.0.0 --port 8000 --reload
+# 3. Test metrics endpoint
+curl http://localhost:8000/metrics
 ```

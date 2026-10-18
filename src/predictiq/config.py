@@ -33,7 +33,10 @@ class ConfigurationError(ValueError):
 
 
 def _resolve_project_root() -> Path:
-    """Resolve repository root directory from file location."""
+    """Resolve repository root directory from file location or environment."""
+    custom_root = os.getenv("PREDICTIQ_ROOT_DIR") or os.getenv("PROJECT_ROOT")
+    if custom_root:
+        return Path(custom_root).resolve()
     # src/predictiq/config.py -> 3 levels up to repo root
     return Path(__file__).resolve().parent.parent.parent
 

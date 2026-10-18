@@ -160,8 +160,12 @@ class ChurnPredictor:
         clean_df = self._normalize_and_validate_input(raw_df)
 
         has_proba = hasattr(self.pipeline, "predict_proba")
-        probas = self.predict_proba(clean_df) if has_proba else np.full(len(clean_df), np.nan)
-        preds = self.predict(clean_df)
+        if has_proba:
+            probas = self.predict_proba(clean_df)
+            preds = (probas >= self.decision_threshold).astype(int)
+        else:
+            probas = np.full(len(clean_df), np.nan)
+            preds = self.pipeline.predict(clean_df).astype(int)
 
         results = raw_df.copy()
         results["predicted_churn"] = np.where(preds == 1, "Yes", "No")
