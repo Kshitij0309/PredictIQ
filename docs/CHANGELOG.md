@@ -4,6 +4,40 @@ All notable changes, architectural decisions, and verification results for the P
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-18
+
+### Phase 2: Dataset Acquisition, Validation & Exploratory Data Analysis
+
+#### Added
+- **Data Ingestion Engine (`src/predictiq/data/ingestion.py`):**
+  - Automated downloading from official IBM repository (`https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv`).
+  - Cryptographic identity verification via SHA-256 (`16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91`, size: 970,457 bytes).
+  - Provenance metadata generator writing to `data/metadata/Telco-Customer-Churn_metadata.json`.
+  - Non-overwriting acquisition logic and discrimination between automated downloads and manual imports.
+  - CLI runner for acquisition and verification: `python -m predictiq.data.ingestion`.
+- **Data Validation Engine (`src/predictiq/data/validation.py`):**
+  - Reusable, non-destructive validation engine checking canonical schema, 0 duplicate identifiers, target distribution, numerical boundaries, and domain constraints.
+  - Generates comprehensive `ValidationReport` with Markdown formatting and actionable recommendations.
+  - Audited 11 blank `TotalCharges` values to brand-new accounts (`tenure == 0`, `Churn == 'No'`) with recommendation to impute `TotalCharges = 0.0`.
+- **Data Cleaning & Normalization (`src/predictiq/data/cleaning.py`):**
+  - Type normalization pipeline coercing `TotalCharges` to `float64`, `tenure` to `int64`, and adding `tenure_cohort` buckets.
+  - Generates cleaned interim datasets in `data/interim/Telco-Customer-Churn-cleaned.csv`.
+- **Exploratory Data Analysis (`notebooks/01_eda_telco_churn.ipynb`):**
+  - Executed 25-cell reproducible notebook with full tables and visual charts.
+  - Formal Hypothesis 1: Contract duration vs. Churn ($\chi^2 = 1184.60, p = 5.86 \times 10^{-258}$, Cramér's $V = 0.410$).
+  - Formal Hypothesis 2: Monthly charges vs. Churn (Welch's $t = 18.41, p = 8.59 \times 10^{-73}$, Cohen's $d = 0.446$, 95% CI: [+$11.77, +$14.58]).
+  - Comprehensive analytical summary with Q&A, key findings, and next steps.
+- **Dataset Documentation (`docs/data/DATASET_CARD.md`):**
+  - Comprehensive dataset card detailing provenance, schema, audit observations, intended use, and ethical guardrails.
+- **Automated Tests:**
+  - `tests/test_data_ingestion.py`: 9 deterministic unit tests for hashing, metadata, and acquisition.
+  - `tests/test_data_validation.py`: 12 deterministic unit tests for schemas, missing columns, bounds, and domain consistency.
+
+#### Validation Outcomes
+- **Test Suite:** 63 of 63 tests passed in 0.64s.
+- **Raw Data Isolation:** Raw CSV verified excluded from Git via `.gitignore`.
+- **Notebook Execution:** Headless execution via `nbconvert` completed with exit code 0.
+
 ---
 
 ## [0.1.0] - 2026-10-18

@@ -51,19 +51,20 @@ graph TD
     Pytest -.-> Core Package
 ```
 
-### Component Responsibilities
-
-| Layer / Component | Location | Responsibility | Phase 1 Status |
+| Layer / Component | Location | Responsibility | Status |
 |---|---|---|---|
-| **Data Layer** | `data/{raw,interim,processed,external}` | Immutable storage hierarchy with gitignore segregation for raw downloads, transformed tables, model-ready matrices, and external benchmarks. | **Implemented** (directory tree & gitkeep anchors) |
-| **Analysis Layer** | `notebooks/` | Interactive prototyping, exploratory analysis, distribution tests, hypothesis verification. | **Implemented** (reproducibility contract & guidelines) |
-| **Configuration** | `src/predictiq/config.py` | Typed dataclass models, port/mode validation, standard library `.env` parsing, dynamic path resolution, connection URL generation. | **Implemented & Verified** (42 passing unit tests) |
+| **Data Layer** | `data/{raw,interim,processed,external}` | Immutable storage hierarchy with gitignore segregation for raw downloads, transformed tables, model-ready matrices, and external benchmarks. | **Implemented & Verified** (IBM Telco raw + interim cleaned) |
+| **Data Ingestion** | `src/predictiq/data/ingestion.py` | Provenance tracking, SHA-256 verification, safe downloads, and metadata generation. | **Implemented & Verified** (9 unit tests passing) |
+| **Data Validation** | `src/predictiq/data/validation.py` | Non-destructive schema, missing-value, boundary, and domain consistency verification. | **Implemented & Verified** (12 unit tests passing) |
+| **Data Cleaning** | `src/predictiq/data/cleaning.py` | Type normalization, TotalCharges imputation (tenure=0), and interim data generation. | **Implemented & Verified** (Cleaned CSV & Parquet outputs) |
+| **Analysis Layer** | `notebooks/` | Interactive prototyping, exploratory analysis, distribution tests, hypothesis verification. | **Implemented & Verified** (`01_eda_telco_churn.ipynb` executed) |
+| **Configuration** | `src/predictiq/config.py` | Typed dataclass models, port/mode validation, standard library `.env` parsing, dynamic path resolution, connection URL generation. | **Implemented & Verified** (42 unit tests passing) |
 | **Feature Layer** | `src/predictiq/features/` | Scalable scikit-learn compatible transformers, feature stores, categorical encoding, imputers. | *Planned for Phase 3* |
 | **ML Layer** | `src/predictiq/models/` | Model estimators, cross-validation runners, hyperparameter optimization, MLflow metric logging. | *Planned for Phase 4* |
 | **Serving Layer** | `src/predictiq/serving/` | FastAPI asynchronous inference endpoints, input schema validation, model artifact loading. | *Planned for Phase 5* |
 | **Monitoring Layer**| `src/predictiq/monitoring/`| Prediction data logging, PSI/Wasserstein drift calculation, accuracy tracking. | *Planned for Phase 6* |
 | **Infrastructure** | `docker-compose.yml` | Containerized PostgreSQL 16 metadata store and MLflow 2.19 tracking server bound to localhost. | **Implemented & Verified** (validated via `docker compose config`) |
-| **Test Suite** | `tests/` | Deterministic unit, integration, and configuration regression tests executed via `pytest`. | **Implemented & Verified** (42 passing tests) |
+| **Test Suite** | `tests/` | Deterministic unit, integration, and configuration regression tests executed via `pytest`. | **Implemented & Verified** (63 passing tests) |
 
 ---
 
@@ -145,18 +146,20 @@ Quality assurance is built into the foundation from day one:
 
 ---
 
-## 7. Scope Boundaries: Phase 1 vs. Future Phases
+## 7. Scope Boundaries: Phase 1 & 2 vs. Future Phases
 
-| Capability | Phase 1 (Current Scope) | Future Phases |
+| Capability | Phase 1 & Phase 2 (Completed) | Future Phases |
 |---|---|---|
 | Project Structure & Layout | Established (`src/`, `tests/`, `data/`, `notebooks/`, `docs/`) | Maintained |
-| Dependency Management | Minimal standard library + pytest in `pyproject.toml` | ML & serving dependencies added per phase |
+| Dependency Management | Minimal stdlib + pytest, extended for pandas/numpy/scipy/seaborn | ML & serving dependencies added per phase |
 | Configuration System | Typed dataclasses, validation, `.env` loader | Extended for serving and drift thresholds |
 | Infrastructure Definition | Docker Compose for PostgreSQL 16 + MLflow 2.19 | Added FastAPI service container |
-| Unit Tests | Comprehensive foundation & config tests (42 passing) | Dataset, feature, and model test suites |
-| Documentation Suite | Full Phase 1 architecture, ADR-001, setup, status | Feature catalogs and model cards |
-| Dataset Acquisition & EDA | Deferred to Phase 2 | Phase 2 implementation |
-| Feature Engineering Pipeline| Deferred to Phase 3 | Phase 3 implementation |
+| Unit Tests | Comprehensive foundation & data tests (**63 passing**) | Feature, model, and API test suites |
+| Documentation Suite | Full architecture, ADR-001, dataset card, setup, status | Feature catalogs and model cards |
+| Dataset Acquisition & Provenance | **Implemented & Verified** (IBM Telco raw CSV + SHA-256) | Automated external feeds |
+| Dataset Validation & Cleaning | **Implemented & Verified** (Non-destructive validation + interim) | In-line inference validation |
+| Exploratory Data Analysis & Hypotheses | **Implemented & Verified** (`01_eda_telco_churn.ipynb` executed) | Drift monitoring comparisons |
+| Feature Engineering Pipeline | Deferred to Phase 3 | Phase 3 implementation |
 | Model Training & MLflow Logging | Deferred to Phase 4 | Phase 4 implementation |
 | Prediction API Service | Deferred to Phase 5 | Phase 5 implementation |
 | Drift & Monitoring System | Deferred to Phase 6 | Phase 6 implementation |

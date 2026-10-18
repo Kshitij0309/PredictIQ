@@ -1,0 +1,12 @@
+{
+  "dataset_name": "IBM Telco Customer Churn",
+  "filename": "Telco-Customer-Churn.csv",
+  "source_url": "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv",
+  "provenance_repo": "https://github.com/IBM/telco-customer-churn-on-icp4d",
+  "license": "Apache-2.0",
+  "retrieval_timestamp_utc": "2026-10-18T14:27:36.707176+00:00",
+  "file_size_bytes": 970457,
+  "sha256_checksum": "16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91",
+  "acquisition_method": "pre_existing_verified",
+  "target_path": "D:\\Projects\\PredictIQ\\data\\raw\\Telco-Customer-Churn.csv"
+}

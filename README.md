@@ -44,28 +44,39 @@ PredictIQ/
 ├── artifacts/                        # Model artifacts & serializations (.gitkeep)
 ├── CURRENT_STATE.md                  # Verified milestone status & test logs
 ├── data/                             # Data layer with immutable isolation
-│   ├── raw/                          # Original immutable datasets (.gitkeep)
-│   ├── interim/                      # Cleaned intermediate transformations (.gitkeep)
+│   ├── metadata/                     # Provenance metadata (Telco-Customer-Churn_metadata.json)
+│   ├── raw/                          # Original immutable datasets (.gitkeep, Telco-Customer-Churn.csv)
+│   ├── interim/                      # Cleaned intermediate transformations (.gitkeep, Telco-Customer-Churn-cleaned.csv)
 │   ├── processed/                    # Model-ready features & splits (.gitkeep)
 │   └── external/                     # Third-party benchmark data (.gitkeep)
 ├── docker-compose.yml                # PostgreSQL 16 & MLflow 2.19 orchestration
 ├── docs/                             # Architecture & operational guides
 │   ├── adr/
 │   │   └── ADR-001-initial-architecture.md  # Accepted architecture decision record
+│   ├── data/
+│   │   └── DATASET_CARD.md           # Dataset provenance, schema, audit, and ethics
 │   ├── ARCHITECTURE.md               # End-to-end system design & layer boundaries
 │   ├── CHANGELOG.md                  # Versioned change history & validation notes
 │   └── DEVELOPMENT_SETUP.md          # Exact Windows PowerShell setup instructions
-├── NEXT_TASK.md                      # Phase 2 scope, prerequisites, and handoff plan
+├── NEXT_TASK.md                      # Phase 3 scope, prerequisites, and handoff plan
 ├── notebooks/                        # Exploratory analysis & prototyping
-│   └── README.md                     # Notebook reproducibility guidelines
+│   ├── README.md                     # Notebook reproducibility guidelines
+│   └── 01_eda_telco_churn.ipynb      # End-to-end EDA & hypothesis testing notebook
 ├── pyproject.toml                    # Package build metadata & pytest configuration
 ├── README.md                         # Project overview and quickstart guide
 ├── src/                              # Application source tree (src/ layout)
 │   └── predictiq/
 │       ├── __init__.py               # Package exports & version metadata
-│       └── config.py                 # Typed configuration, validation, & .env loader
-└── tests/                            # Automated test suite
-    └── test_config.py                # 42 unit tests for config, ports, paths, & env
+│       ├── config.py                 # Typed configuration, validation, & .env loader
+│       └── data/                     # Data acquisition, validation, & cleaning
+│           ├── __init__.py           # Data module public exports
+│           ├── ingestion.py          # Verified download & SHA-256 provenance tracking
+│           ├── validation.py         # Non-destructive schema & domain constraint validation
+│           └── cleaning.py          # Type normalization & interim data preparation
+└── tests/                            # Automated test suite (63 passed)
+    ├── test_config.py                # 42 unit tests for config, ports, paths, & env
+    ├── test_data_ingestion.py        # 9 unit tests for checksums, provenance, & acquisition
+    └── test_data_validation.py       # 12 unit tests for schema, constraints, & domain rules
 ```
 
 ---
@@ -95,7 +106,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### Step 3: Install Package & Dependencies
 ```powershell
-& ".\.venv\Scripts\pip.exe" install -e ".[dev]"
+& ".\.venv\Scripts\pip.exe" install -e ".[dev,analysis]"
 ```
 
 ### Step 4: Configure Local Environment
@@ -103,11 +114,28 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 Copy-Item -Path ".env.example" -Destination ".env"
 ```
 
-### Step 5: Run Automated Tests
+### Step 5: Acquire & Validate IBM Telco Dataset (Phase 2)
+```powershell
+# 1. Download and verify provenance (SHA-256 hash checking)
+& ".\.venv\Scripts\python.exe" -m predictiq.data.ingestion
+
+# 2. Run schema and domain validation audit
+& ".\.venv\Scripts\python.exe" -c "from predictiq.data.validation import validate_dataset; print(validate_dataset('data/raw/Telco-Customer-Churn.csv').summary())"
+
+# 3. Clean and generate interim dataset
+& ".\.venv\Scripts\python.exe" -c "from predictiq.data.cleaning import process_raw_to_interim; process_raw_to_interim()"
+```
+
+### Step 6: Run Automated Tests
 ```powershell
 & ".\.venv\Scripts\pytest.exe" tests -v
 ```
-*Expected: 42 passed in < 0.15s.*
+*Expected: 63 passed in < 0.8s.*
+
+### Step 7: Execute Exploratory Data Analysis Notebook
+```powershell
+& ".\.venv\Scripts\python.exe" -m nbconvert --to notebook --execute "notebooks/01_eda_telco_churn.ipynb"
+```
 
 ---
 
@@ -161,7 +189,16 @@ docker compose down -v
 - [x] Comprehensive pytest test suite (42 tests passing).
 - [x] Complete architecture documentation, ADR-001, changelog, and setup guide.
 
+### Phase 2 Implemented
+- [x] Verified acquisition of IBM Telco Customer Churn dataset with SHA-256 cryptographic tracking.
+- [x] Raw dataset safely excluded from Git via `.gitignore`.
+- [x] Reusable, non-destructive data validation engine ([`src/predictiq/data/validation.py`](file:///D:/Projects/PredictIQ/src/predictiq/data/validation.py)).
+- [x] Data cleaning and interim transformation pipeline ([`src/predictiq/data/cleaning.py`](file:///D:/Projects/PredictIQ/src/predictiq/data/cleaning.py)).
+- [x] End-to-end reproducible exploratory data analysis notebook ([`notebooks/01_eda_telco_churn.ipynb`](file:///D:/Projects/PredictIQ/notebooks/01_eda_telco_churn.ipynb)).
+- [x] Two formal statistical hypothesis tests ($\chi^2$ test with Cramér's $V$; Welch's t-test with Cohen's $d$).
+- [x] Complete dataset card ([`docs/data/DATASET_CARD.md`](file:///D:/Projects/PredictIQ/docs/data/DATASET_CARD.md)).
+- [x] 21 new deterministic unit tests added (total **63 passing tests**).
+
 ### Current Limitations & Exclusions
-- **No ML models or training pipelines yet:** By design, Phase 1 establishes infrastructure and configuration. Modeling begins in Phase 4.
-- **No data ingestion or EDA executed yet:** Scheduled for Phase 2.
-- **Docker runtime requires active Docker Desktop:** `docker compose config` validates deterministically; actual container startup depends on Docker Desktop running in the user session.
+- **No ML models or training pipelines yet:** By design, Phase 2 focuses on data acquisition, validation, and EDA. Model training begins in Phase 4.
+- **Docker runtime requires active Docker Desktop:** `docker compose config` validates deterministically; container startup depends on Docker Desktop running on the host.
