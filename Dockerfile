@@ -14,6 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     ENVIRONMENT=production \
+    ENABLE_DOCS=true \
     PREDICTIQ_ROOT_DIR=/app \
     MODEL_PATH=/app/models/churn_champion_model.joblib \
     PORT=8000 \
