@@ -84,6 +84,34 @@ services:
     networks:
       - predictiq_network
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    image: predictiq-dashboard:latest
+    container_name: predictiq-dashboard
+    restart: unless-stopped
+    environment:
+      PREDICTIQ_API_URL: http://api:8000
+      PREDICTIQ_ROOT_DIR: /app
+      PREDICTIQ_DATA_DIR: /app/data
+      PYTHONPATH: /app
+    volumes:
+      - ./data:/app/data:ro
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-8501}:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8501/_stcore/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - predictiq_network
+
 volumes:
   postgres_data:
     name: predictiq_postgres_data

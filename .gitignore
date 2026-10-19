@@ -98,14 +98,19 @@ artifacts/*
 !artifacts/.gitkeep
 models/*
 !models/.gitkeep
+!models/churn_champion_model.joblib
+!models/churn_champion_model_metadata.json
 
 # MLflow Local Files & Docker Local Mounts
 mlruns/
 mlartifacts/
 postgres_data/
 
-# Temporary files and logs
+# Temporary files, logs, and experiment backups
 logs/
 *.log
 scratch/
 tmp/
+.backup_redesign/
+*.bak
+*.backup

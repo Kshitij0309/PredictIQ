@@ -67,9 +67,10 @@ graph TD
 | **Experiment Tracking** | `src/predictiq/tracking/` | MLflow tracking manager supporting remote server and automatic local filesystem fallback (`./mlruns`). | **Implemented & Verified** (2 unit tests passing) |
 | **Inference Engine** | `src/predictiq/inference/` | `ChurnPredictor` with dynamic threshold loading, probability scoring, and business risk tier assignments. | **Implemented & Verified** (4 unit tests passing) |
 | **Serving Layer** | `src/predictiq/api/` | FastAPI asynchronous inference endpoints, Pydantic v2 schemas, threadpool offloading, model artifact loading. | **Implemented & Verified** (16 API tests passing, 5 endpoints) |
+| **Presentation Layer** | `dashboard/` | Interactive Streamlit dashboard with Customer Analytics, Model Intelligence, and Batch/Single Churn Prediction. | **Implemented & Verified** (30 unit tests passing, containerized) |
 | **Monitoring Layer**| `src/predictiq/monitoring/`| Prediction data logging, PSI/Wasserstein drift calculation, accuracy tracking. | *Planned for Phase 6* |
-| **Infrastructure** | `docker-compose.yml`, `Dockerfile` | Multi-stage production container (non-root, healthcheck) + PostgreSQL 16 & MLflow 2.19. | **Implemented & Verified** (validated via `docker compose config` & live container) |
-| **Test Suite** | `tests/` | Deterministic unit, integration, protocol, and API tests executed via `pytest`. | **Implemented & Verified** (**113 passing tests**) |
+| **Infrastructure** | `docker-compose.yml`, `Dockerfile`, `dashboard/Dockerfile` | Multi-stage production containers (non-root, healthcheck) + PostgreSQL 16 & MLflow 2.19. | **Implemented & Verified** (validated via `docker compose config` & live containers) |
+| **Test Suite** | `tests/`, `dashboard/tests/` | Deterministic unit, integration, protocol, API, and dashboard tests executed via `pytest`. | **Implemented & Verified** (**143 passing tests**) |
 
 ---
 

@@ -48,18 +48,28 @@ class SHAPExplanationResult:
 
 
 def extract_preprocessed_features(
-    pipeline: Pipeline,
+    pipeline: Any,
     X: pd.DataFrame,
 ) -> tuple[np.ndarray, List[str], Any]:
     """Transform raw dataframe through pipeline preprocessing steps and return matrix and names."""
+    from sklearn.calibration import CalibratedClassifierCV
+
+    # Unwrap top-level CalibratedClassifierCV if passed directly
+    base_pipe = pipeline
+    if isinstance(pipeline, CalibratedClassifierCV):
+        if hasattr(pipeline, "estimator") and pipeline.estimator is not None:
+            base_pipe = pipeline.estimator
+        elif hasattr(pipeline, "calibrated_classifiers_") and len(pipeline.calibrated_classifiers_) > 0:
+            base_pipe = pipeline.calibrated_classifiers_[0].estimator
+
     # 1. Feature Engineering step
-    if "features" in pipeline.named_steps:
-        X_feat = pipeline.named_steps["features"].transform(X)
+    if hasattr(base_pipe, "named_steps") and "features" in base_pipe.named_steps:
+        X_feat = base_pipe.named_steps["features"].transform(X)
     else:
         X_feat = X
 
     # 2. Preprocessor step
-    preprocessor = pipeline.named_steps["preprocessor"]
+    preprocessor = base_pipe.named_steps["preprocessor"]
     X_trans = preprocessor.transform(X_feat)
 
     # 3. Feature names out
@@ -69,13 +79,10 @@ def extract_preprocessed_features(
         feature_names = [f"feat_{i}" for i in range(X_trans.shape[1])]
 
     # 4. Underlying classifier
-    classifier = pipeline.named_steps["classifier"]
+    classifier = base_pipe.named_steps["classifier"]
 
-    # Handle CalibratedClassifierCV if wrapped
-    from sklearn.calibration import CalibratedClassifierCV
-
+    # Handle inner CalibratedClassifierCV if wrapped inside pipeline step
     if isinstance(classifier, CalibratedClassifierCV):
-        # Extract base fitted estimator from first calibrated fold
         if hasattr(classifier, "calibrated_classifiers_") and len(classifier.calibrated_classifiers_) > 0:
             classifier = classifier.calibrated_classifiers_[0].estimator
         else:

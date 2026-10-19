@@ -1,0 +1,37 @@
+{
+  "model_name": "Random Forest (Calibrated)",
+  "base_estimator": "Random Forest",
+  "best_hyperparameters": {
+    "classifier__n_estimators": 120,
+    "classifier__min_samples_leaf": 3,
+    "classifier__max_features": "sqrt",
+    "classifier__max_depth": 8
+  },
+  "optimal_decision_threshold": 0.34,
+  "threshold_selection_strategy": "Empirical F1-Score Maximization (Training OOF)",
+  "brier_score_uncalibrated": 0.16015017770323223,
+  "brier_score_calibrated": 0.13544982561517008,
+  "brier_improvement_pct": 15.423243634380079,
+  "cv_mean_pr_auc": 0.6606659934359588,
+  "cv_std_pr_auc": 0.022020476056724102,
+  "final_test_pr_auc": 0.6684245221045628,
+  "final_test_roc_auc": 0.8428156242734249,
+  "final_test_f1_optimal_threshold": 0.6231038506417736,
+  "final_test_recall_optimal_threshold": 0.713903743315508,
+  "final_test_precision_optimal_threshold": 0.5527950310559007,
+  "split_seed": 2026,
+  "split_purpose": "isolated_evaluation",
+  "top_10_shap_features": [
+    "is_month_to_month",
+    "Contract_Month-to-month",
+    "tenure",
+    "InternetService_Fiber optic",
+    "is_fiber_optic",
+    "OnlineSecurity_No",
+    "Contract_Two year",
+    "tenure_group_0-12 mos",
+    "TotalCharges",
+    "TechSupport_No"
+  ],
+  "python_version": "3.13.14 (tags/v3.13.14:fd17997, Jun 10 2026, 13:03:48) [MSC v.1944 64 bit (AMD64)]"
+}

@@ -336,3 +336,95 @@ def save_evaluation_artifacts(
         "pr_curve": pr_path,
         "confusion_matrix": cm_path,
     }
+
+
+def plot_champion_heldout_curves(
+    y_true: np.ndarray | pd.Series,
+    y_proba: np.ndarray,
+    optimal_threshold: float = 0.34,
+    output_path: Optional[Path | str] = None,
+    model_name: str = "Random Forest (Calibrated)",
+    split_desc: str = "Held-Out Test (Seed 2026, N=1,409)",
+) -> Path:
+    """Generate diagnostic Precision-Recall and ROC curves for the champion model on held-out test data.
+
+    Specifically plots:
+    1. Precision-Recall curve with positive class baseline prevalence (26.54%) and optimal threshold operating point.
+    2. ROC curve with chance line (AUC = 0.500) and optimal threshold operating point.
+    """
+    y_arr = np.asarray(y_true, dtype=int)
+    p_arr = np.asarray(y_proba, dtype=float)
+
+    fig, (ax_pr, ax_roc) = plt.subplots(1, 2, figsize=(14, 6), dpi=300)
+    plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
+
+    # 1. Precision-Recall Curve
+    precision, recall, _ = precision_recall_curve(y_arr, p_arr)
+    ap = average_precision_score(y_arr, p_arr)
+    prevalence = float(np.mean(y_arr))
+
+    preds_opt = (p_arr >= optimal_threshold).astype(int)
+    rec_opt = recall_score(y_arr, preds_opt, zero_division=0)
+    prec_opt = precision_score(y_arr, preds_opt, zero_division=0)
+    f1_opt = f1_score(y_arr, preds_opt, zero_division=0)
+
+    ax_pr.plot(recall, precision, color="#2563eb", lw=2.5, label=f"{model_name}\n(PR-AUC = {ap:.4f})")
+    ax_pr.axhline(
+        y=prevalence,
+        color="gray",
+        linestyle="--",
+        lw=1.5,
+        label=f"Baseline Prevalence ({prevalence:.1%})",
+    )
+    ax_pr.plot(
+        rec_opt,
+        prec_opt,
+        marker="*",
+        markersize=12,
+        color="#dc2626",
+        linestyle="None",
+        label=f"Selected p* = {optimal_threshold:.2f}\n(Recall: {rec_opt:.1%}, Prec: {prec_opt:.1%}, F1: {f1_opt:.4f})",
+    )
+
+    ax_pr.set_xlim([0.0, 1.0])
+    ax_pr.set_ylim([0.0, 1.05])
+    ax_pr.set_xlabel("Recall (Catch Rate)", fontsize=11, fontweight="bold")
+    ax_pr.set_ylabel("Precision", fontsize=11, fontweight="bold")
+    ax_pr.set_title(f"Precision-Recall Curve — {model_name}\n[{split_desc}]", fontsize=12, fontweight="bold")
+    ax_pr.legend(loc="upper right", frameon=True, fontsize=9)
+
+    # 2. ROC Curve
+    fpr, tpr, _ = roc_curve(y_arr, p_arr)
+    roc_auc = roc_auc_score(y_arr, p_arr)
+
+    cm = confusion_matrix(y_arr, preds_opt, labels=[0, 1])
+    tn, fp, fn, tp = cm.ravel()
+    fpr_opt = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+    tpr_opt = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+    ax_roc.plot(fpr, tpr, color="#0891b2", lw=2.5, label=f"{model_name}\n(ROC-AUC = {roc_auc:.4f})")
+    ax_roc.plot([0, 1], [0, 1], color="gray", lw=1.5, linestyle="--", label="Random Chance (AUC = 0.5000)")
+    ax_roc.plot(
+        fpr_opt,
+        tpr_opt,
+        marker="*",
+        markersize=12,
+        color="#dc2626",
+        linestyle="None",
+        label=f"Operating Point p* = {optimal_threshold:.2f}\n(TPR: {tpr_opt:.1%}, FPR: {fpr_opt:.1%})",
+    )
+
+    ax_roc.set_xlim([0.0, 1.0])
+    ax_roc.set_ylim([0.0, 1.05])
+    ax_roc.set_xlabel("False Positive Rate (1 - Specificity)", fontsize=11, fontweight="bold")
+    ax_roc.set_ylabel("True Positive Rate (Recall)", fontsize=11, fontweight="bold")
+    ax_roc.set_title(f"ROC Curve — {model_name}\n[{split_desc}]", fontsize=12, fontweight="bold")
+    ax_roc.legend(loc="lower right", frameon=True, fontsize=9)
+
+    plt.tight_layout()
+    out_file = Path(output_path) if output_path else Path("reports/figures/champion_heldout_curves.png")
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(out_file, dpi=300)
+    plt.close()
+    return out_file
+

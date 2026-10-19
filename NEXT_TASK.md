@@ -39,6 +39,7 @@
 - [x] Phase 3 Feature Engineering & MLflow Tracking verified.
 - [x] Phase 4 Evaluation Protocol Correction, Tuning, Calibration, Thresholding & SHAP verified.
 - [x] Phase 5 FastAPI Production Inference Service, Containerization, and Latency Benchmarking verified (113 passing tests, Docker container validated).
+- [x] Dashboard MVP: Streamlit Customer Analytics, Model Intelligence, and Batch/Single Churn Scoring verified (30 tests, 143 total passing tests, Docker container validated).
 
 ---
 

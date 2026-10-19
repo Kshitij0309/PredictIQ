@@ -4,6 +4,46 @@ All notable changes, architectural decisions, and verification results for the P
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-18
+
+### Dashboard MVP: Interactive Streamlit Presentation Layer
+
+#### Added
+- **Streamlit Dashboard Application (`dashboard/app.py`):**
+  - Full-stack interactive dashboard integrating Customer Analytics, Model Intelligence, and Real-Time Churn Prediction.
+  - Responsive layout with custom CSS, dark/light theme compatibility, and clean metric cards.
+  - Service status badge with real-time indicators distinguishing Healthy, Unready (503), and Offline states.
+- **Customer Analytics View (`dashboard/pages/customer_analytics.py`):**
+  - Cohort statistics computed directly from real cleaned customer data ($N=7,043$).
+  - KPI metric cards: Total Customers, Churned Customers, Retained Customers, Total Monthly Revenue.
+  - Interactive Altair charts: Churn rate by contract, tenure cohort patterns, internet service providers, and payment methods.
+  - Dynamic multi-select and range filters with instant filter resetting and summary statistics.
+- **Model Intelligence View (`dashboard/pages/model_intelligence.py`):**
+  - Champion model architecture audit: 120-tree Random Forest, Platt sigmoid calibration, and frozen decision threshold ($p^* = 0.3400$).
+  - Evaluated performance metrics: PR-AUC (0.6684), ROC-AUC (0.8428), Recall (71.39%), Precision (55.28%), F1 (0.6231), Brier Score (0.1354).
+  - Accessible metric glossary explaining business significance and imbalanced classification trade-offs.
+  - Visual artifact inspector: cross-validation comparison table, threshold trade-offs, calibration reliability diagrams, and TreeSHAP beeswarm and archetype waterfalls.
+  - Protocol transparency callout re-affirming that the Seed 2026 split represents an internal holdout benchmark.
+- **Real-Time & Batch Churn Prediction (`dashboard/pages/churn_prediction.py`):**
+  - Single customer scoring form matching all 19 `CustomerInputSchema` features.
+  - Real-time communication with FastAPI `POST /predict`.
+  - Visual prediction outcome card: probability gauge, cutoff margin, risk tier badge, and actionable retention recommendations.
+  - CSV batch processor validating column schemas, enforcing the 500-record batch limit, preserving row association, and exporting augmented prediction CSVs.
+  - Built-in downloadable sample CSV template (`predictiq_batch_sample.csv`).
+- **Resilient REST Client (`dashboard/services/api_client.py`):**
+  - Configurable backend target via `PREDICTIQ_API_URL` (defaults to `http://localhost:8000` or `http://api:8000`).
+  - Timeout enforcement (connect: 3s, read: 10s single / 45s batch).
+  - Clear separation of backend network errors, HTTP 422 validation, and HTTP 503 unready states.
+- **Containerization (`dashboard/Dockerfile`, `docker-compose.yml`):**
+  - Multi-layer container on `python:3.13-slim` running under unprivileged user `appuser` (UID 10001).
+  - Healthcheck probe targeting Streamlit internal endpoint `/_stcore/health`.
+  - Compose service integration on port 8501 with dependency on healthy `api` service.
+- **Automated Test Suite (`dashboard/tests/`):**
+  - 30 focused unit tests covering API client, data service, CSV validator, and artifact loader.
+  - Total automated test suite expanded to **143 passing tests** (100% pass rate).
+
+---
+
 ## [0.5.0] - 2026-10-18
 
 ### Phase 5: Production API Serving and Containerized Deployment
