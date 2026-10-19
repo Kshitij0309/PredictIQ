@@ -291,7 +291,7 @@ def test_predict_when_unready_returns_503(valid_customer_payload: Dict[str, Any]
 # ==============================================================================
 
 def test_production_mode_hides_api_documentation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Interactive docs (/docs, /redoc, /openapi.json) must be disabled in production."""
+    """Interactive docs (/docs, /redoc, /openapi.json) must be disabled in production by default."""
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("ENABLE_DOCS", raising=False)
 
@@ -302,3 +302,40 @@ def test_production_mode_hides_api_documentation(monkeypatch: pytest.MonkeyPatch
         assert prod_client.get("/docs").status_code == 404
         assert prod_client.get("/redoc").status_code == 404
         assert prod_client.get("/openapi.json").status_code == 404
+
+
+def test_production_mode_with_explicit_enable_docs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When ENABLE_DOCS=true in production, interactive docs must be enabled."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("ENABLE_DOCS", "true")
+
+    prod_config = Config.from_env(load_env=False)
+    prod_app = create_app(config=prod_config)
+
+    with TestClient(prod_app) as prod_client:
+        assert prod_client.get("/docs").status_code == 200
+        assert prod_client.get("/openapi.json").status_code == 200
+
+
+def test_root_endpoint(client: TestClient) -> None:
+    """GET / must return 200 with service index metadata and available endpoints."""
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["service"] == "PredictIQ Inference API"
+    assert data["status"] == "online"
+    assert "endpoints" in data
+    assert data["endpoints"]["health"] == "/health"
+    assert data["endpoints"]["ready"] == "/ready"
+    assert data["endpoints"]["model_info"] == "/model-info"
+    assert data["endpoints"]["predict"] == "/predict"
+
+
+def test_model_info_alias_matches_canonical(client: TestClient) -> None:
+    """GET /model_info (underscore) must return identical response to /model-info (hyphen)."""
+    canonical_resp = client.get("/model-info")
+    alias_resp = client.get("/model_info")
+
+    assert canonical_resp.status_code == 200
+    assert alias_resp.status_code == 200
+    assert canonical_resp.json() == alias_resp.json()

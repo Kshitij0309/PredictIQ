@@ -11,10 +11,12 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    autoDeploy: false
+    autoDeploy: true
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: ENABLE_DOCS
+        value: "true"
       - key: LOG_LEVEL
         value: info
       - key: PREDICTIQ_ROOT_DIR
@@ -33,7 +35,7 @@ services:
     dockerfilePath: ./dashboard/Dockerfile
     dockerContext: .
     healthCheckPath: /_stcore/health
-    autoDeploy: false
+    autoDeploy: true
     envVars:
       # PREDICTIQ_API_URL:
       # Render assigns a unique public HTTPS URL to the predictiq-api service upon creation.

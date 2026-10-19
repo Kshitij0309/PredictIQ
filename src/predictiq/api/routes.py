@@ -28,6 +28,40 @@ router = APIRouter()
 
 
 @router.get(
+    "/",
+    summary="Service Index",
+    description="Returns service metadata, health summary, and navigational links to active endpoints.",
+    tags=["System"],
+)
+async def root(request: Request) -> Dict[str, Any]:
+    """Root service index returning API metadata and available endpoints."""
+    start_time = getattr(request.app.state, "start_time", time.time())
+    uptime = time.time() - start_time
+    env = os.getenv("ENVIRONMENT", "development")
+    docs_available = getattr(request.app, "docs_url", None) is not None
+
+    endpoints = {
+        "health": "/health",
+        "ready": "/ready",
+        "model_info": "/model-info",
+        "predict": "/predict",
+        "predict_batch": "/predict/batch",
+    }
+    if docs_available:
+        endpoints["docs"] = "/docs"
+        endpoints["openapi"] = "/openapi.json"
+
+    return {
+        "service": "PredictIQ Inference API",
+        "version": "0.1.0",
+        "status": "online",
+        "environment": env,
+        "uptime_seconds": round(uptime, 2),
+        "endpoints": endpoints,
+    }
+
+
+@router.get(
     "/health",
     response_model=HealthResponse,
     summary="Process Health Probe",
@@ -122,6 +156,19 @@ async def model_info(
         top_features=meta.get("top_10_shap_features", []),
         api_version="0.1.0",
     )
+
+
+@router.get(
+    "/model_info",
+    response_model=ModelInfoResponse,
+    include_in_schema=False,
+)
+async def model_info_alias(
+    predictor: ChurnPredictor = Depends(get_predictor),
+    metadata: Dict[str, Any] = Depends(get_model_metadata),
+) -> ModelInfoResponse:
+    """Handle underscore requests for model info without 404."""
+    return await model_info(predictor=predictor, metadata=metadata)
 
 
 @router.post(
