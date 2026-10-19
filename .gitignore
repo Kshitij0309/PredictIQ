@@ -83,11 +83,12 @@ ehthumbs_vista.db
 [Dd]esktop.ini
 .DS_Store
 
-# Data Layer (Never commit raw, interim, processed, or external data files)
+# Data Layer (Raw, processed, and external excluded; cleaned dataset tracked for dashboard)
 data/raw/*
 !data/raw/.gitkeep
 data/interim/*
 !data/interim/.gitkeep
+!data/interim/Telco-Customer-Churn-cleaned.csv
 data/processed/*
 !data/processed/.gitkeep
 data/external/*
@@ -114,3 +115,8 @@ tmp/
 .backup_redesign/
 *.bak
 *.backup
+
+# Development documentation and task trackers (kept local, excluded from deployment)
+docs/
+CURRENT_STATE.md
+NEXT_TASK.md

@@ -49,12 +49,12 @@ RUN chown -R appuser:appgroup /app
 # Switch to non-root execution
 USER appuser
 
-# Expose HTTP service port
+# Expose HTTP service port (default 8000, dynamically overridden by $PORT on platforms like Render)
 EXPOSE 8000
 
 # Container liveness health check probe
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
-# Launch production Uvicorn ASGI server
-CMD ["uvicorn", "predictiq.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Launch production Uvicorn ASGI server with dynamic $PORT support and single-worker memory safety
+CMD ["sh", "-c", "exec uvicorn predictiq.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

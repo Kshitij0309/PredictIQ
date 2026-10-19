@@ -27,9 +27,10 @@ __pycache__/
 *.key
 *.cert
 
-# Data Layer (Never bake training or interim data into images)
+# Data Layer (Raw, processed, external excluded; cleaned dataset included for dashboard)
 data/raw/
-data/interim/
+data/interim/*
+!data/interim/Telco-Customer-Churn-cleaned.csv
 data/processed/
 data/external/
 

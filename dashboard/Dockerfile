@@ -52,12 +52,12 @@ RUN chown -R appuser:appgroup /app
 # Switch to non-root execution
 USER appuser
 
-# Expose Streamlit default port
+# Expose Streamlit default port (default 8501, dynamically overridden by $PORT on platforms like Render)
 EXPOSE 8501
 
 # Container health check probe targeting Streamlit internal health endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8501}/_stcore/health || exit 1
 
-# Launch production Streamlit application from /app
-CMD ["python", "-m", "streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+# Launch production Streamlit application from /app with dynamic $PORT support
+CMD ["sh", "-c", "exec python -m streamlit run dashboard/app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true"]

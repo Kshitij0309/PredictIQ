@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  # ============================================================================
+  # 1. PredictIQ FastAPI Prediction Backend Service
+  # ============================================================================
+  - type: web
+    name: predictiq-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PREDICTIQ_ROOT_DIR
+        value: /app
+      - key: MODEL_PATH
+        value: /app/models/churn_champion_model.joblib
+
+  # ============================================================================
+  # 2. PredictIQ Streamlit Interactive Presentation Layer
+  # ============================================================================
+  - type: web
+    name: predictiq-dashboard
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./dashboard/Dockerfile
+    dockerContext: .
+    healthCheckPath: /_stcore/health
+    autoDeploy: false
+    envVars:
+      # PREDICTIQ_API_URL:
+      # Render assigns a unique public HTTPS URL to the predictiq-api service upon creation.
+      # On the Render Free tier, cross-service communication occurs over this public URL.
+      # Setting sync: false prompts for or preserves the actual live API URL in Render Dashboard.
+      - key: PREDICTIQ_API_URL
+        sync: false
+      - key: PREDICTIQ_ROOT_DIR
+        value: /app
+      - key: PREDICTIQ_DATA_DIR
+        value: /app/data
+      - key: PYTHONPATH
+        value: /app
+      - key: STREAMLIT_SERVER_HEADLESS
+        value: "true"
+      - key: STREAMLIT_SERVER_ADDRESS
+        value: "0.0.0.0"

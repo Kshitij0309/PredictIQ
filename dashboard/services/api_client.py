@@ -30,7 +30,8 @@ class PredictIQClient:
     """Client for the PredictIQ FastAPI prediction service."""
 
     def __init__(self, base_url: Optional[str] = None):
-        raw_url = base_url or os.getenv("PREDICTIQ_API_URL", DEFAULT_API_URL)
+        env_url = (os.getenv("PREDICTIQ_API_URL") or "").strip()
+        raw_url = base_url or (env_url if env_url else DEFAULT_API_URL)
         self.base_url: str = raw_url.rstrip("/")
         self.session = requests.Session()
 
