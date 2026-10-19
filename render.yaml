@@ -42,7 +42,7 @@ services:
       # On the Render Free tier, cross-service communication occurs over this public URL.
       # Setting sync: false prompts for or preserves the actual live API URL in Render Dashboard.
       - key: PREDICTIQ_API_URL
-        sync: false
+        value: https://predictiq-u912.onrender.com
       - key: PREDICTIQ_ROOT_DIR
         value: /app
       - key: PREDICTIQ_DATA_DIR
@@ -53,3 +53,7 @@ services:
         value: "true"
       - key: STREAMLIT_SERVER_ADDRESS
         value: "0.0.0.0"
+      - key: STREAMLIT_SERVER_ENABLE_CORS
+        value: "false"
+      - key: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
+        value: "false"
